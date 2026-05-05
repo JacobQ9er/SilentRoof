@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SilentRoof — AI Lead Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --void:#080a0f;--surface:#0d1117;--card:#141c2b;--border:#1e2d45;--border2:#243450;
+  --hot:#ff3b30;--hot-dim:rgba(255,59,48,.12);--warm:#ff9f0a;--warm-dim:rgba(255,159,10,.10);
+  --watch:#30d158;--watch-dim:rgba(48,209,88,.08);--accent:#00c8ff;--accent-dim:rgba(0,200,255,.08);
+  --text:#e8edf5;--muted:#5a7090;--muted2:#3a5070;
+  --mono:'DM Mono',monospace;--display:'Syne',sans-serif;
+}
+html,body{height:100%;background:var(--void);color:var(--text);font-family:var(--display);overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,200,255,.012) 2px,rgba(0,200,255,.012) 4px);pointer-events:none;z-index:0}
+.shell{display:grid;grid-template-rows:56px 1fr;height:100vh;position:relative;z-index:1}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;padding:0 20px;gap:12px;border-bottom:1px solid var(--border);background:rgba(8,10,15,.95);flex-wrap:wrap}
+.logo-text{font-family:var(--display);font-size:17px;font-weight:800;letter-spacing:-.3px}
+.logo-text span{color:var(--accent)}
+.logo-tag{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-left:1px solid var(--border2);padding-left:12px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--watch);flex-shrink:0}
+.pulse-dot.scanning{background:var(--warm);animation:blink .5s ease-in-out infinite}
+.pulse-dot.live{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(48,209,88,.4)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(48,209,88,0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.live-label{font-family:var(--mono);font-size:10px;color:var(--watch);letter-spacing:1.5px}
+.live-label.scanning{color:var(--warm)}
+.topbar-btn{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:6px 12px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.topbar-btn:hover{border-color:var(--accent);color:var(--accent)}
+.topbar-btn.primary{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.topbar-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* MAIN */
+.main{display:grid;grid-template-columns:220px 1fr 300px;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{border-right:1px solid var(--border);padding:16px 0;display:flex;flex-direction:column;overflow-y:auto;background:var(--surface)}
+.sidebar-section{padding:0 12px 14px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.sidebar-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);padding:0 8px;margin-bottom:8px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:6px;cursor:default}
+.stat-num{font-family:var(--mono);font-size:22px;font-weight:500;line-height:1}
+.stat-num.hot{color:var(--hot)}.stat-num.warm{color:var(--warm)}.stat-num.watch{color:var(--watch)}.stat-num.total{color:var(--accent)}
+.stat-label{font-size:10px;color:var(--muted);margin-top:3px}
+.filter-btn{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;border-radius:3px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--display);font-size:12px;transition:all .15s;text-align:left}
+.filter-btn:hover,.filter-btn.active{background:var(--card);color:var(--text)}
+.filter-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.filter-count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted2)}
+.search-wrap{padding:0 12px;margin-bottom:12px}
+.search-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 10px;outline:none;transition:border-color .2s}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted2)}
+
+/* TIER SELECTOR */
+.tier-selector{padding:0 12px;margin-bottom:12px}
+.tier-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:6px;display:block}
+.tier-option{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;margin-bottom:4px;transition:all .2s;width:100%}
+.tier-option:hover{border-color:var(--accent-dim);color:var(--text)}
+.tier-option.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.tier-option .tier-price{font-size:9px;color:var(--muted2)}
+.tier-option.active .tier-price{color:var(--accent)}
+
+/* LEAD LIST */
+.lead-list-wrap{overflow-y:auto;background:var(--void)}
+.list-header{display:grid;grid-template-columns:28px 1fr 80px 90px 80px 60px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10}
+.list-header span{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2)}
+.lead-row{display:grid;grid-template-columns:28px 1fr 80px 90px 80px 60px;padding:10px 16px;border-bottom:1px solid rgba(30,45,69,.5);cursor:pointer;transition:background .15s;align-items:center}
+.lead-row:hover{background:var(--card)}
+.lead-row.selected{background:rgba(0,200,255,.05);border-left:2px solid var(--accent)}
+.tier-bar{width:3px;height:32px;border-radius:2px;justify-self:center}
+.tier-bar.hot{background:var(--hot)}.tier-bar.warm{background:var(--warm)}.tier-bar.watch{background:var(--watch)}
+.lead-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lead-addr{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lead-cell{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.years-pill{display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;border-radius:3px;font-family:var(--mono);font-size:10px;font-weight:500;white-space:nowrap}
+.years-pill.hot{background:var(--hot-dim);color:var(--hot);border:1px solid rgba(255,59,48,.25)}
+.years-pill.warm{background:var(--warm-dim);color:var(--warm);border:1px solid rgba(255,159,10,.2)}
+.years-pill.watch{background:var(--watch-dim);color:var(--watch);border:1px solid rgba(48,209,88,.18)}
+.score-bar{height:3px;border-radius:2px;background:var(--border);flex:1}
+.score-fill{height:3px;border-radius:2px}
+
+/* LOADING STATE */
+.loading-row{display:flex;align-items:center;justify-content:center;gap:12px;padding:40px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.spinner{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-row{padding:32px 20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.8}
+.error-row a{color:var(--accent);cursor:pointer;text-decoration:underline}
+
+/* DETAIL */
+.detail-panel{border-left:1px solid var(--border);background:var(--surface);overflow-y:auto;display:flex;flex-direction:column}
+.detail-header{padding:14px;border-bottom:1px solid var(--border)}
+.detail-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:5px}
+.detail-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px;line-height:1.4}
+.detail-addr{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.detail-body{padding:12px;flex:1}
+.detail-section{margin-bottom:16px}
+.detail-section-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:7px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.detail-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(30,45,69,.4);gap:8px}
+.detail-row:last-child{border-bottom:none}
+.detail-key{font-size:11px;color:var(--muted);flex-shrink:0}
+.detail-val{font-family:var(--mono);font-size:11px;color:var(--text);text-align:right;word-break:break-all}
+.urgency-badge{padding:3px 10px;border-radius:3px;font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.urgency-badge.hot{background:var(--hot-dim);color:var(--hot);border:1px solid rgba(255,59,48,.3)}
+.urgency-badge.warm{background:var(--warm-dim);color:var(--warm);border:1px solid rgba(255,159,10,.25)}
+.urgency-badge.watch{background:var(--watch-dim);color:var(--watch);border:1px solid rgba(48,209,88,.2)}
+.ai-insight{background:var(--card);border:1px solid var(--border2);border-radius:4px;padding:10px;margin-bottom:12px}
+.ai-insight-label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+.ai-insight-text{font-size:11px;color:var(--muted);line-height:1.7}
+.action-btns{display:flex;flex-direction:column;gap:5px;padding:12px;border-top:1px solid var(--border);margin-top:auto}
+.action-btn{padding:8px 12px;border-radius:3px;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;text-align:center}
+.action-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.action-btn.cta{border-color:var(--hot);color:var(--hot);background:var(--hot-dim)}
+.empty-detail{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted2);gap:10px;padding:20px;text-align:center}
+.empty-detail p{font-size:11px;line-height:1.7}
+
+/* SOURCE BADGE */
+.source-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:2px;font-family:var(--mono);font-size:9px;border:1px solid var(--border2);color:var(--muted2)}
+.source-badge.live{border-color:rgba(48,209,88,.3);color:var(--watch)}
+.source-badge.demo{border-color:var(--border2);color:var(--muted2)}
+
+/* PROGRESS */
+.scan-progress{padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:none;align-items:center;gap:10px}
+.scan-progress.visible{display:flex}
+.progress-bar-wrap{flex:1;height:3px;background:var(--border);border-radius:2px}
+.progress-bar-fill{height:3px;background:var(--accent);border-radius:2px;transition:width .3s ease}
+.scan-msg{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+.lead-row{animation:fadeIn .25s ease both}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none" style="flex-shrink:0">
+      <path d="M4 22 L14 5 L24 22 Z" fill="none" stroke="#00c8ff" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M8 22 L14 11 L20 22 Z" fill="rgba(0,200,255,.15)" stroke="#00c8ff" stroke-width="1" stroke-linejoin="round"/>
+      <circle cx="14" cy="22" r="1.5" fill="#00c8ff"/>
+    </svg>
+    <div class="logo-text">Silent<span>Roof</span></div>
+    <div class="logo-tag">AI Lead Intelligence</div>
+    <div class="topbar-right">
+      <div class="pulse-dot live" id="statusDot"></div>
+      <span class="live-label" id="statusLabel">Ready</span>
+      <button class="topbar-btn" onclick="exportCSV()" id="exportBtn">Export CSV</button>
+      <button class="topbar-btn primary" onclick="startScan()" id="scanBtn">⟳ Pull Live Data</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Pipeline</div>
+        <div class="stat-card"><div class="stat-num hot" id="hotCount">—</div><div class="stat-label">Hot — under 2 yrs</div></div>
+        <div class="stat-card"><div class="stat-num warm" id="warmCount">—</div><div class="stat-label">Warm — 2–5 yrs</div></div>
+        <div class="stat-card"><div class="stat-num watch" id="watchCount">—</div><div class="stat-label">Watch — 5–10 yrs</div></div>
+        <div class="stat-card"><div class="stat-num total" id="totalCount">—</div><div class="stat-label">Total leads</div></div>
+      </div>
+
+      <!-- TERRITORY TIER -->
+      <div class="sidebar-section">
+        <div class="sidebar-label">Territory tier</div>
+        <button class="tier-option" onclick="setTier('starter',this)" id="t-starter">
+          <span>Starter — Core city</span><span class="tier-price">$299/mo</span>
+        </button>
+        <button class="tier-option active" onclick="setTier('pro',this)" id="t-pro">
+          <span>Pro — Metro + suburbs</span><span class="tier-price">$499/mo</span>
+        </button>
+        <button class="tier-option" onclick="setTier('state',this)" id="t-state">
+          <span>State — All MN</span><span class="tier-price">$899/mo</span>
+        </button>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);padding:6px 2px;line-height:1.6">First to pay locks territory.<br>Exclusive per tier per metro.</div>
+      </div>
+
+      <div class="search-wrap">
+        <input class="search-input" placeholder="Search address, city..." oninput="filterLeads(this.value)">
+      </div>
+      <div class="sidebar-label" style="padding:0 20px;margin-bottom:8px">Filter</div>
+      <div style="padding:0 12px">
+        <button class="filter-btn active" onclick="setFilter('all',this)"><span class="filter-dot" style="background:var(--accent)"></span>All<span class="filter-count" id="fc-all">0</span></button>
+        <button class="filter-btn" onclick="setFilter('hot',this)"><span class="filter-dot" style="background:var(--hot)"></span>Hot<span class="filter-count" id="fc-hot">0</span></button>
+        <button class="filter-btn" onclick="setFilter('warm',this)"><span class="filter-dot" style="background:var(--warm)"></span>Warm<span class="filter-count" id="fc-warm">0</span></button>
+        <button class="filter-btn" onclick="setFilter('watch',this)"><span class="filter-dot" style="background:var(--watch)"></span>Watch<span class="filter-count" id="fc-watch">0</span></button>
+      </div>
+
+      <div style="padding:10px 20px;margin-top:auto;border-top:1px solid var(--border)">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--muted2);text-transform:uppercase;margin-bottom:3px">Data source</div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.6" id="sourceInfo">Minneapolis Open Data<br>CCS Permits API</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:4px" id="lastScan">Not yet scanned</div>
+      </div>
+    </div>
+
+    <!-- CENTER: LEAD LIST -->
+    <div class="lead-list-wrap" id="leadListWrap">
+      <div class="scan-progress" id="scanProgress">
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+        <span class="scan-msg" id="scanMsg">Connecting...</span>
+      </div>
+      <div class="list-header">
+        <span></span><span>Property / Address</span><span>City</span><span>Permit date</span><span>Yrs left</span><span>Score</span>
+      </div>
+      <div id="leadList">
+        <div class="loading-row">
+          <div style="text-align:center;padding:20px">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px">Click "Pull Live Data" to fetch real Minneapolis permit records,<br>or load the demo dataset to explore.</div>
+            <button class="topbar-btn primary" onclick="loadDemo()" style="margin:0 auto;display:inline-block">Load Demo Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: DETAIL -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="empty-detail">
+        <svg width="36" height="36" viewBox="0 0 40 40" fill="none"><path d="M6 32 L20 8 L34 32 Z" stroke="#3a5070" stroke-width="1.5" stroke-linejoin="round" fill="none"/><circle cx="20" cy="32" r="2" fill="#3a5070"/></svg>
+        <p>Select a building to view<br>permit history and AI insights</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+// Minneapolis CCS Permits — ArcGIS REST API (public, no key needed)
+const MPLS_API = 'https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/CCS_Permits/FeatureServer/0/query';
+
+// Zip code ranges by tier (Minneapolis metro)
+const TIER_ZIPS = {
+  starter: ['55401','55402','55403','55404','55405','55406','55407','55408','55409','55410','55411','55412','55413','55414','55415','55416','55417','55418','55419','55420','55421','55422','55423','55424','55425'],
+  pro:     ['55301','55303','55304','55305','55306','55316','55317','55318','55327','55328','55330','55331','55337','55340','55343','55344','55345','55346','55347','55356','55357','55358','55359','55360','55362','55364','55369','55371','55372','55373','55374','55375','55376','55378','55379','55380','55381','55382','55384','55385','55386','55387','55388','55391','55392','55393','55394','55395','55396','55397','55398','55426','55427','55428','55429','55430','55431','55432','55433','55434','55435','55436','55437','55438','55439','55440','55441','55442','55443','55444','55445','55446','55447'],
+  state:   null // all of MN — no zip filter
+};
+
+const CYCLE_YEARS = 30;
+const NOW_YEAR = new Date().getFullYear();
+
+let allLeads = [];
+let activeFilter = 'all';
+let activeSearch = '';
+let selectedId = null;
+let currentTier = 'pro';
+let dataSource = 'none'; // 'live' | 'demo'
+
+// ─── DEMO DATA (fallback) ─────────────────────────────────────────────────────
+const DEMO_LEADS = [
+  {id:1,name:"Northgate Commerce Center",addr:"3800 Central Ave NE",city:"Minneapolis",zip:"55421",type:"Commercial",sqft:84000,permitDate:"1993-06-12",permitNum:"BLD93-04421",source:"demo"},
+  {id:2,name:"Lakeside Industrial Park",addr:"2200 Freeway Blvd",city:"Brooklyn Center",zip:"55430",type:"Industrial",sqft:120000,permitDate:"1995-03-28",permitNum:"BLD95-01187",source:"demo"},
+  {id:3,name:"Rosedale Medical Bldg",addr:"1580 County Rd B2 W",city:"Roseville",zip:"55113",type:"Medical Office",sqft:42000,permitDate:"1996-09-14",permitNum:"BLD96-08832",source:"demo"},
+  {id:4,name:"Burnsville Town Center",addr:"12100 Burnsville Pkwy",city:"Burnsville",zip:"55337",type:"Retail",sqft:67000,permitDate:"1997-04-02",permitNum:"BLD97-02291",source:"demo"},
+  {id:5,name:"Eden Prairie Tech Campus",addr:"8500 Normandale Lake Blvd",city:"Eden Prairie",zip:"55437",type:"Corporate Office",sqft:95000,permitDate:"1998-01-17",permitNum:"BLD98-00548",source:"demo"},
+  {id:6,name:"Shoreview Distribution Hub",addr:"4400 Lexington Ave N",city:"Shoreview",zip:"55126",type:"Industrial",sqft:210000,permitDate:"1998-08-22",permitNum:"BLD98-06613",source:"demo"},
+  {id:7,name:"Maplewood Clinic & Wellness",addr:"2780 White Bear Ave",city:"Maplewood",zip:"55109",type:"Medical",sqft:28000,permitDate:"1999-11-03",permitNum:"BLD99-11004",source:"demo"},
+  {id:8,name:"Plymouth Business Center II",addr:"3600 Holly Lane N",city:"Plymouth",zip:"55447",type:"Office",sqft:55000,permitDate:"2000-03-15",permitNum:"BLD00-02218",source:"demo"},
+  {id:9,name:"Coon Rapids Flex Space",addr:"9900 Radisson Rd NE",city:"Coon Rapids",zip:"55433",type:"Flex Industrial",sqft:38000,permitDate:"2001-07-08",permitNum:"BLD01-07741",source:"demo"},
+  {id:10,name:"Woodbury Corporate Commons",addr:"7600 Woodbury Dr",city:"Woodbury",zip:"55125",type:"Corporate Office",sqft:73000,permitDate:"2001-12-19",permitNum:"BLD01-14492",source:"demo"},
+];
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function tierColor(t){return t==='hot'?'var(--hot)':t==='warm'?'var(--warm)':'var(--watch)'}
+
+function calcYearsLeft(permitDate){
+  const yr = new Date(permitDate+'T00:00:00').getFullYear();
+  return (yr + CYCLE_YEARS) - NOW_YEAR;
+}
+
+function getTier(y){
+  if(y <= 2) return 'hot';
+  if(y <= 5) return 'warm';
+  return 'watch';
+}
+
+function calcScore(y){
+  if(y < 0) return 99;
+  if(y <= 2) return Math.round(95 - y*5);
+  if(y <= 5) return Math.round(80 - (y-2)*5);
+  return Math.max(20, Math.round(65 - (y-5)*8));
+}
+
+function fmtDate(d){
+  return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'});
+}
+
+function fmtYears(y){
+  if(y < 0) return 'Overdue '+Math.abs(y).toFixed(1)+'yr';
+  return y.toFixed(1)+' yrs';
+}
+
+function estJob(sqft){
+  if(!sqft) return 'N/A';
+  const lo = sqft*3.5, hi = sqft*7;
+  const f = n => n>=1000000 ? (n/1000000).toFixed(1)+'M' : Math.round(n/1000)+'K';
+  return '$'+f(lo)+' – $'+f(hi);
+}
+
+function buildInsight(lead){
+  const age = NOW_YEAR - new Date(lead.permitDate+'T00:00:00').getFullYear();
+  const t = getTier(lead.yearsLeft);
+  const type = lead.type || 'commercial property';
+  if(t==='hot') return `This ${type.toLowerCase()} had its last roofing permit ${age} years ago — at or past the 30-year commercial cycle. Budget planning for replacements typically begins 12–18 months before work starts. Outreach now catches them at the decision window.`;
+  if(t==='warm') return `Roof system is ${age} years old with roughly ${lead.yearsLeft.toFixed(0)} years remaining in the expected lifecycle. Starting conversations now positions you ahead of the formal bidding process. ${type.includes('Industrial')||type.includes('Warehouse')?'Large industrial footprints like this are multi-phase jobs worth planning early.':'Decision-makers at this type of property typically plan 6–12 months ahead.'}`;
+  return `${age}-year-old roof with ${lead.yearsLeft.toFixed(0)}+ years remaining. Add to your long-range pipeline. A relationship-building visit or mailer now means you\'re the first call when they enter the planning window.`;
+}
+
+// ─── LIVE DATA PIPELINE ───────────────────────────────────────────────────────
+async function startScan(){
+  const btn = document.getElementById('scanBtn');
+  const dot = document.getElementById('statusDot');
+  const lbl = document.getElementById('statusLabel');
+  const prog = document.getElementById('scanProgress');
+  const fill = document.getElementById('progressFill');
+  const msg = document.getElementById('scanMsg');
+
+  btn.disabled = true;
+  dot.className = 'pulse-dot scanning';
+  lbl.className = 'live-label scanning';
+  lbl.textContent = 'Scanning...';
+  prog.classList.add('visible');
+  document.getElementById('leadList').innerHTML = '<div class="loading-row"><div class="spinner"></div><span>Connecting to Minneapolis permit database...</span></div>';
+
+  try {
+    setProgress(fill, msg, 15, 'Querying Minneapolis CCS Permits API...');
+
+    // Build the query — filter for roofing permits on commercial buildings
+    // issued between 1990 and 2020 (30yr cycle window)
+    const params = new URLSearchParams({
+      where: `PERMITTYPE LIKE '%ROOF%' AND ISSUEDDATE >= DATE '1990-01-01' AND ISSUEDDATE <= DATE '2020-12-31' AND ESTATEVAL > 50000`,
+      outFields: 'PERMITNUM,PERMITTYPE,ISSUEDDATE,ORIGINALADDRESS1,ORIGINALCITY,ORIGINALSTATE,ORIGINALZIP,ESTATEVAL,WORKTYPE',
+      resultRecordCount: 200,
+      orderByFields: 'ISSUEDDATE ASC',
+      f: 'json'
+    });
+
+    setProgress(fill, msg, 35, 'Fetching permit records...');
+
+    const res = await fetch(`${MPLS_API}?${params}`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if(data.error) throw new Error(data.error.message || 'API error');
+
+    setProgress(fill, msg, 65, `Processing ${data.features?.length || 0} permit records...`);
+
+    if(!data.features || data.features.length === 0){
+      throw new Error('No matching permits returned. The API may have changed its field names.');
+    }
+
+    // Process records into leads
+    const raw = data.features.map((f,i) => {
+      const p = f.attributes;
+      const dateMs = p.ISSUEDDATE;
+      const dateStr = dateMs ? new Date(dateMs).toISOString().slice(0,10) : null;
+      if(!dateStr) return null;
+      const yearsLeft = calcYearsLeft(dateStr);
+      if(yearsLeft > 10) return null; // outside our scoring window
+      return {
+        id: i+1,
+        name: p.ORIGINALADDRESS1 || 'Commercial Property',
+        addr: p.ORIGINALADDRESS1 || '—',
+        city: p.ORIGINALCITY || 'Minneapolis',
+        zip: p.ORIGINALZIP || '',
+        type: p.WORKTYPE || p.PERMITTYPE || 'Commercial',
+        sqft: null,
+        permitDate: dateStr,
+        permitNum: p.PERMITNUM || '—',
+        estVal: p.ESTATEVAL || 0,
+        yearsLeft,
+        tier: getTier(yearsLeft),
+        score: calcScore(yearsLeft),
+        source: 'live'
+      };
+    }).filter(Boolean);
+
+    // Dedupe by address (keep most recent permit per address)
+    const byAddr = {};
+    raw.forEach(r => {
+      const key = r.addr.toLowerCase().trim();
+      if(!byAddr[key] || r.yearsLeft < byAddr[key].yearsLeft) byAddr[key] = r;
+    });
+    const deduped = Object.values(byAddr).sort((a,b) => a.yearsLeft - b.yearsLeft);
+
+    // Add insights
+    deduped.forEach(l => { l.insight = buildInsight(l); });
+
+    setProgress(fill, msg, 90, `Scoring ${deduped.length} buildings...`);
+    await sleep(400);
+    setProgress(fill, msg, 100, 'Complete');
+    await sleep(300);
+
+    allLeads = deduped;
+    dataSource = 'live';
+    document.getElementById('lastScan').textContent = 'Live — '+new Date().toLocaleTimeString();
+    updateCounts();
+    renderList();
+
+  } catch(err) {
+    console.error('Scan error:', err);
+    document.getElementById('leadList').innerHTML = `
+      <div class="error-row">
+        <div style="color:var(--hot);font-family:var(--mono);font-size:11px;margin-bottom:8px">API connection issue</div>
+        <div style="color:var(--muted);font-size:11px;line-height:1.8;margin-bottom:12px">
+          ${err.message}<br><br>
+          This can happen if the city changed their API endpoint or<br>
+          if there's a CORS restriction in the current browser.<br>
+          The live pull works best when this file is opened directly in Chrome or Edge.
+        </div>
+        <button class="topbar-btn primary" onclick="loadDemo()" style="margin:0 auto;display:inline-block">Load Demo Data Instead</button>
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    dot.className = 'pulse-dot live';
+    lbl.className = 'live-label';
+    lbl.textContent = dataSource === 'live' ? 'Live' : 'Ready';
+    prog.classList.remove('visible');
+  }
+}
+
+function setProgress(fill, msg, pct, text){
+  fill.style.width = pct+'%';
+  msg.textContent = text;
+}
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// ─── DEMO DATA LOADER ─────────────────────────────────────────────────────────
+function loadDemo(){
+  const processed = DEMO_LEADS.map(l => {
+    const yearsLeft = calcYearsLeft(l.permitDate);
+    return {
+      ...l,
+      yearsLeft,
+      tier: getTier(yearsLeft),
+      score: calcScore(yearsLeft),
+      insight: buildInsight({...l, yearsLeft})
+    };
+  }).sort((a,b) => a.yearsLeft - b.yearsLeft);
+
+  allLeads = processed;
+  dataSource = 'demo';
+  document.getElementById('lastScan').textContent = 'Demo dataset';
+  document.getElementById('statusLabel').textContent = 'Demo';
+  updateCounts();
+  renderList();
+}
+
+// ─── TIER + FILTER ────────────────────────────────────────────────────────────
+function setTier(tier, btn){
+  currentTier = tier;
+  document.querySelectorAll('.tier-option').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+}
+
+function setFilter(f, btn){
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+}
+
+function filterLeads(q){ activeSearch = q.toLowerCase(); renderList(); }
+
+function getVisibleLeads(){
+  let leads = allLeads;
+  // Apply tier zip filter for live data
+  if(dataSource === 'live' && currentTier !== 'state' && TIER_ZIPS[currentTier]){
+    const zips = TIER_ZIPS[currentTier];
+    leads = leads.filter(l => zips.includes(String(l.zip).slice(0,5)));
+  }
+  // Apply tier filter for demo (simulate by count)
+  if(dataSource === 'demo'){
+    if(currentTier === 'starter') leads = leads.slice(0, 4);
+    else if(currentTier === 'pro') leads = leads.slice(0, 7);
+  }
+  // Filter
+  if(activeFilter !== 'all') leads = leads.filter(l => l.tier === activeFilter);
+  if(activeSearch) leads = leads.filter(l =>
+    l.name.toLowerCase().includes(activeSearch) ||
+    l.addr.toLowerCase().includes(activeSearch) ||
+    l.city.toLowerCase().includes(activeSearch)
+  );
+  return leads;
+}
+
+// ─── COUNTS ───────────────────────────────────────────────────────────────────
+function updateCounts(){
+  const vis = getVisibleLeads();
+  const all = dataSource === 'demo' ? allLeads.filter(l => {
+    if(currentTier==='starter') return allLeads.indexOf(l)<4;
+    if(currentTier==='pro') return allLeads.indexOf(l)<7;
+    return true;
+  }) : allLeads;
+  const hot = all.filter(l=>l.tier==='hot').length;
+  const warm = all.filter(l=>l.tier==='warm').length;
+  const watch = all.filter(l=>l.tier==='watch').length;
+  document.getElementById('hotCount').textContent = hot;
+  document.getElementById('warmCount').textContent = warm;
+  document.getElementById('watchCount').textContent = watch;
+  document.getElementById('totalCount').textContent = all.length;
+  document.getElementById('fc-all').textContent = all.length;
+  document.getElementById('fc-hot').textContent = hot;
+  document.getElementById('fc-warm').textContent = warm;
+  document.getElementById('fc-watch').textContent = watch;
+}
+
+// ─── RENDER LIST ─────────────────────────────────────────────────────────────
+function renderList(){
+  updateCounts();
+  const leads = getVisibleLeads();
+  if(leads.length === 0){
+    document.getElementById('leadList').innerHTML = '<div style="padding:32px;text-align:center;font-size:11px;color:var(--muted)">No leads match this filter.</div>';
+    return;
+  }
+  document.getElementById('leadList').innerHTML = leads.map((l,i) => `
+    <div class="lead-row${selectedId===l.id?' selected':''}" onclick="selectLead(${l.id})" style="animation-delay:${i*.025}s">
+      <div class="tier-bar ${l.tier}"></div>
+      <div style="min-width:0">
+        <div class="lead-name">${l.name}</div>
+        <div class="lead-addr">${l.addr}${l.city&&l.city!==l.name?', '+l.city:''}</div>
+      </div>
+      <div class="lead-cell" style="font-size:10px">${l.city||'—'}</div>
+      <div class="lead-cell" style="color:var(--text)">${fmtDate(l.permitDate)}</div>
+      <div><span class="years-pill ${l.tier}">${fmtYears(l.yearsLeft)}</span></div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <div class="score-bar"><div class="score-fill" style="width:${l.score}%;background:${tierColor(l.tier)}"></div></div>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:20px">${l.score}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
+function selectLead(id){
+  selectedId = id;
+  renderList();
+  const l = allLeads.find(x => x.id === id);
+  if(!l) return;
+  const age = NOW_YEAR - new Date(l.permitDate+'T00:00:00').getFullYear();
+  const sourceBadge = l.source === 'live'
+    ? '<span class="source-badge live">&#9679; Live API</span>'
+    : '<span class="source-badge demo">Demo</span>';
+  document.getElementById('detailPanel').innerHTML = `
+    <div class="detail-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div class="detail-label">Lead detail</div>
+        ${sourceBadge}
+      </div>
+      <div class="detail-name">${l.name}</div>
+      <div class="detail-addr">${l.addr}, ${l.city} ${l.zip}</div>
+    </div>
+    <div class="detail-body">
+      <div class="ai-insight">
+        <div class="ai-insight-label">&#9675; AI insight</div>
+        <div class="ai-insight-text">${l.insight || buildInsight(l)}</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">Urgency</div>
+        <div class="detail-row"><span class="detail-key">Tier</span><span class="urgency-badge ${l.tier}">${l.tier==='hot'?'Hot — Act Now':l.tier==='warm'?'Warm — Engage Soon':'Watch'}</span></div>
+        <div class="detail-row"><span class="detail-key">Years remaining</span><span class="detail-val" style="color:${tierColor(l.tier)}">${fmtYears(l.yearsLeft)}</span></div>
+        <div class="detail-row"><span class="detail-key">Lead score</span><span class="detail-val">${l.score}/100</span></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">Property</div>
+        <div class="detail-row"><span class="detail-key">Address</span><span class="detail-val">${l.addr}</span></div>
+        <div class="detail-row"><span class="detail-key">City / Zip</span><span class="detail-val">${l.city} ${l.zip}</span></div>
+        <div class="detail-row"><span class="detail-key">Type</span><span class="detail-val">${l.type}</span></div>
+        <div class="detail-row"><span class="detail-key">Roof age</span><span class="detail-val">${age} years</span></div>
+        ${l.sqft?`<div class="detail-row"><span class="detail-key">Sq footage</span><span class="detail-val">${l.sqft.toLocaleString()} sq ft</span></div>`:''}
+        ${l.estVal?`<div class="detail-row"><span class="detail-key">Est. permit value</span><span class="detail-val">$${parseInt(l.estVal).toLocaleString()}</span></div>`:''}
+        <div class="detail-row"><span class="detail-key">Est. contract</span><span class="detail-val">${l.sqft?estJob(l.sqft):'Based on permit value'}</span></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">Permit record</div>
+        <div class="detail-row"><span class="detail-key">Permit #</span><span class="detail-val">${l.permitNum||'—'}</span></div>
+        <div class="detail-row"><span class="detail-key">Issued</span><span class="detail-val">${fmtDate(l.permitDate)}</span></div>
+        <div class="detail-row"><span class="detail-key">30-yr cycle hits</span><span class="detail-val">${new Date(l.permitDate+'T00:00:00').getFullYear()+CYCLE_YEARS}</span></div>
+      </div>
+    </div>
+    <div class="action-btns">
+      <button class="action-btn cta" onclick="draftOutreach(${l.id})">Draft AI outreach email</button>
+      <button class="action-btn" onclick="exportSingle(${l.id})">Export this lead</button>
+      <button class="action-btn" onclick="alert('Lead saved to watch list — will resurface at the right time.')">Add to watch list</button>
+    </div>`;
+}
+
+// ─── OUTREACH (Phase 2 hook) ──────────────────────────────────────────────────
+function draftOutreach(id){
+  const l = allLeads.find(x=>x.id===id);
+  alert(`Phase 2 — AI Sales Agent\n\nWhen built, this will auto-draft a personalized outreach email for:\n${l.name}\n${l.addr}, ${l.city}\n\nThe email will reference:\n• Their roof age (${NOW_YEAR - new Date(l.permitDate+'T00:00:00').getFullYear()} years)\n• The 30-year commercial cycle\n• A no-pressure educational hook\n• Your contact info and credentials\n\nThis is the inside sales agent — Phase 2.`);
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportCSV(){
+  const leads = getVisibleLeads();
+  if(leads.length === 0){ alert('No leads to export. Pull data or load demo first.'); return; }
+  const h = ['Name','Address','City','Zip','Type','Permit Date','Permit #','Years Remaining','Tier','Score','Est Contract','Source'];
+  const rows = leads.map(l => [
+    l.name, l.addr, l.city, l.zip, l.type,
+    l.permitDate, l.permitNum || '—', l.yearsLeft.toFixed(1),
+    l.tier, l.score, l.sqft ? estJob(l.sqft) : '—', l.source
+  ].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const csv = [h.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'SilentRoof_Leads_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+function exportSingle(id){
+  const l = allLeads.find(x=>x.id===id);
+  const h = ['Name','Address','City','Zip','Type','Permit Date','Permit #','Years Remaining','Tier','Score','Source'];
+  const row = [l.name,l.addr,l.city,l.zip,l.type,l.permitDate,l.permitNum||'—',l.yearsLeft.toFixed(1),l.tier,l.score,l.source].map(v=>'"'+v+'"').join(',');
+  const csv = [h.join(','), row].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'SilentRoof_Lead_' + (l.name||l.addr).replace(/\s+/g,'_') + '.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
