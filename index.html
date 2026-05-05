@@ -268,21 +268,32 @@ async function startScan(){
     fill.style.width='60%'; msg.textContent=`Processing ${data.features?.length||0} records...`;
     await sleep(300);
 
-    // Decode Minneapolis occupancy codes to readable labels
     const OCCUPANCY = {
       'Comm': 'Commercial',
-      'MFD':  'Multi-Family / Residential',
+      'MFD':  'Multi-Family',
       'Ind':  'Industrial',
       'SFD':  'Single Family',
       'Inst': 'Institutional',
     };
 
-    const raw = (data.features||[]).map((f,i) => {
+    // Dedupe by address — keep most recent permit per address
+    const seen = new Map();
+    (data.features||[]).forEach(f => {
       const p = f.attributes;
+      if(!p.applicantAddress1 || !p.issueDate) return;
+      const key = p.applicantAddress1.toLowerCase().trim();
+      if(!seen.has(key) || p.issueDate > seen.get(key).issueDate) {
+        seen.set(key, p);
+      }
+    });
+
+    const raw = Array.from(seen.values()).map((p, i) => {
       const dateMs = p.issueDate;
       if(!dateMs) return null;
       const dateStr = new Date(dateMs).toISOString().slice(0,10);
       const yearsLeft = calcYearsLeft(dateStr);
+      // Only include buildings within our scoring window
+      if(yearsLeft > 12) return null;
       return {
         id: i+1,
         name: p.fullName || p.applicantAddress1 || 'Commercial Property',
@@ -302,7 +313,8 @@ async function startScan(){
       };
     });
 
-    const deduped = Object.values(processLeads(raw,'live'))
+    const deduped = raw
+      .filter(Boolean)
       .sort((a,b) => a.yearsLeft - b.yearsLeft);
 
     deduped.forEach(l => { l.insight = buildInsight(l); });
