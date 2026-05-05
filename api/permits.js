@@ -1,6 +1,6 @@
-// Vercel serverless function — PRODUCTION
-// Pulls ALL Commercial permitType records, filters for any roof-related workType in JS
-// Avoids ArcGIS LIKE/date syntax issues entirely
+// Vercel serverless function — FINAL PRODUCTION VERSION
+// workType = 'RoofWind' confirmed returns 500 records (step 1 test)
+// All date/occupancy filtering done in JavaScript
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,10 +9,9 @@ module.exports = async function handler(req, res) {
   const baseUrl = 'https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/CCS_Permits/FeatureServer/0/query';
 
   try {
-    // Pull all Commercial permits — confirmed safe simple query
-    // We do ALL the smart filtering in JavaScript below
+    // This exact query confirmed working — returns 500 records
     const queryString = [
-      `where=${encodeURIComponent("permitType = 'Commercial'")}`,
+      `where=${encodeURIComponent("workType = 'RoofWind'")}`,
       `outFields=permitNumber,workType,issueDate,applicantAddress1,applicantCity,value,occupancyType,fullName,Latitude,Longitude`,
       `resultRecordCount=2000`,
       `orderByFields=issueDate ASC`,
@@ -30,34 +29,29 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // All smart filtering done here in JS — no ArcGIS syntax issues
     const dateStart = new Date('1990-01-01').getTime();
     const dateEnd   = new Date('2021-01-01').getTime();
-
-    // Catch any workType that sounds roof-related
-    const isRoofing = (workType) => {
-      if (!workType) return false;
-      const w = workType.toLowerCase();
-      return w.includes('roof') || w.includes('reroof') || w.includes('re-roof');
-    };
+    const skipOccupancy = new Set(['SFD']); // exclude single family residential
 
     const filtered = (data.features || []).filter(f => {
       const p = f.attributes;
       const inDateRange = p.issueDate >= dateStart && p.issueDate <= dateEnd;
-      const hasRoof = isRoofing(p.workType);
-      const hasValue = p.value > 5000; // filter out $0 permits (inspections, amendments)
-      return inDateRange && hasRoof && hasValue;
+      const notResidential = !skipOccupancy.has(p.occupancyType);
+      const hasValue = (p.value || 0) > 0;
+      return inDateRange && notResidential && hasValue;
     });
 
-    // Also return a unique list of workTypes we found — useful for debugging
-    const workTypes = [...new Set(
-      (data.features || []).map(f => f.attributes.workType).filter(Boolean)
+    // Show unique occupancy types found — for our reference
+    const occupancyTypes = [...new Set(
+      (data.features || []).map(f => f.attributes.occupancyType).filter(Boolean)
     )].sort();
 
     return res.status(200).json({
       features: filtered,
       totalFiltered: filtered.length,
       totalFromAPI: data.features?.length || 0,
-      workTypesFound: workTypes // shows us every workType in Commercial permits
+      occupancyTypesFound: occupancyTypes
     });
 
   } catch(err) {
