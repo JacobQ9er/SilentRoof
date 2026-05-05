@@ -293,7 +293,7 @@ async function startScan(){
       const dateStr = new Date(dateMs).toISOString().slice(0,10);
       const yearsLeft = calcYearsLeft(dateStr);
       // Only include buildings within our scoring window
-      if(yearsLeft > 12) return null;
+      if(yearsLeft > 30) return null; // only exclude truly new roofs
       return {
         id: i+1,
         name: p.fullName || p.applicantAddress1 || 'Commercial Property',
@@ -316,6 +316,17 @@ async function startScan(){
     const deduped = raw
       .filter(Boolean)
       .sort((a,b) => a.yearsLeft - b.yearsLeft);
+
+    // DIAGNOSTIC — remove after confirmed working
+    console.log('Total from API:', data.features?.length);
+    console.log('Total after dedupe/filter:', deduped.length);
+    console.log('Sample yearsLeft values:', deduped.slice(0,5).map(l => ({addr:l.addr, yearsLeft:l.yearsLeft, tier:l.tier})));
+    if(deduped.length === 0 && data.features?.length > 0) {
+      const sample = data.features[0].attributes;
+      const sampleDate = new Date(sample.issueDate).toISOString().slice(0,10);
+      const sampleYears = calcYearsLeft(sampleDate);
+      setStatus(`Data arrived but filtered out. Sample: ${sampleDate} = ${sampleYears.toFixed(1)} yrs left. Check yearsLeft > 12 filter.`, '#ff9f0a');
+    }
 
     deduped.forEach(l => { l.insight = buildInsight(l); });
 
