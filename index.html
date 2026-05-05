@@ -268,9 +268,17 @@ async function startScan(){
     fill.style.width='60%'; msg.textContent=`Processing ${data.features?.length||0} records...`;
     await sleep(300);
 
+    // Decode Minneapolis occupancy codes to readable labels
+    const OCCUPANCY = {
+      'Comm': 'Commercial',
+      'MFD':  'Multi-Family / Residential',
+      'Ind':  'Industrial',
+      'SFD':  'Single Family',
+      'Inst': 'Institutional',
+    };
+
     const raw = (data.features||[]).map((f,i) => {
       const p = f.attributes;
-      // Confirmed field names from Minneapolis CCS Permits API
       const dateMs = p.issueDate;
       if(!dateMs) return null;
       const dateStr = new Date(dateMs).toISOString().slice(0,10);
@@ -281,7 +289,7 @@ async function startScan(){
         addr: p.applicantAddress1 || '—',
         city: p.applicantCity || 'Minneapolis',
         zip: '',
-        type: p.occupancyType || p.workType || p.permitType || 'Commercial',
+        type: OCCUPANCY[p.occupancyType] || p.occupancyType || 'Commercial',
         permitDate: dateStr,
         permitNum: p.permitNumber || '—',
         estVal: p.value || 0,
