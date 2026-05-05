@@ -270,20 +270,23 @@ async function startScan(){
 
     const raw = (data.features||[]).map((f,i) => {
       const p = f.attributes;
-      const dateMs = p.ISSUEDDATE;
+      // Confirmed field names from Minneapolis CCS Permits API
+      const dateMs = p.issueDate;
       if(!dateMs) return null;
       const dateStr = new Date(dateMs).toISOString().slice(0,10);
       const yearsLeft = calcYearsLeft(dateStr);
       return {
         id: i+1,
-        name: p.ORIGINALADDRESS1 || 'Commercial Property',
-        addr: p.ORIGINALADDRESS1 || '—',
-        city: p.ORIGINALCITY || 'Minneapolis',
-        zip: String(p.ORIGINALZIP||'').slice(0,5),
-        type: p.WORKTYPE || p.PERMITTYPE || 'Commercial',
+        name: p.fullName || p.applicantAddress1 || 'Commercial Property',
+        addr: p.applicantAddress1 || '—',
+        city: p.applicantCity || 'Minneapolis',
+        zip: '',
+        type: p.occupancyType || p.workType || p.permitType || 'Commercial',
         permitDate: dateStr,
-        permitNum: p.PERMITNUM || '—',
-        estVal: p.ESTATEVAL || 0,
+        permitNum: p.permitNumber || '—',
+        estVal: p.value || 0,
+        lat: p.Latitude || null,
+        lng: p.Longitude || null,
         yearsLeft,
         tier: getTier(yearsLeft),
         score: calcScore(yearsLeft),
