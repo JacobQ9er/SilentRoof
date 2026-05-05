@@ -1,4 +1,5 @@
-// Vercel serverless function — CommonJS format for maximum compatibility
+// Vercel serverless function — step-by-step query builder
+// Use ?q=1 through ?q=5 to test progressively complex queries
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -6,67 +7,49 @@ module.exports = async function handler(req, res) {
 
   const baseUrl = 'https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/CCS_Permits/FeatureServer/0/query';
 
-  // Ping test — visit /api/permits?ping=1 to verify Vercel can reach the city API
-  if (req.query && req.query.ping === '1') {
-    try {
-      const r = await fetch(`${baseUrl}?where=1%3D1&outFields=permitNumber&resultRecordCount=1&f=json`);
-      const text = await r.text();
-      return res.status(200).json({ ping: true, httpStatus: r.status, preview: text.slice(0, 300) });
-    } catch(e) {
-      return res.status(200).json({ ping: true, fetchError: e.message });
-    }
-  }
+  const step = (req.query && req.query.q) ? req.query.q : 'prod';
+
+  // Each step tests one more piece of the query
+  const queries = {
+    '1': `workType = 'RoofWind'`,
+    '2': `workType = 'RoofWind' AND value > 0`,
+    '3': `workType = 'RoofWind' AND occupancyType = 'Comm'`,
+    '4': `workType = 'RoofWind' AND issueDate <= TIMESTAMP '2021-01-01 00:00:00'`,
+    '5': `workType = 'RoofWind' AND issueDate >= TIMESTAMP '1990-01-01 00:00:00' AND issueDate <= TIMESTAMP '2021-01-01 00:00:00'`,
+    'prod': `workType = 'RoofWind' AND issueDate >= TIMESTAMP '1990-01-01 00:00:00' AND issueDate <= TIMESTAMP '2021-01-01 00:00:00' AND occupancyType IN ('Comm', 'MFD', 'Ind')`
+  };
+
+  const where = queries[step] || queries['1'];
 
   try {
-    const dateStart = 631152000000;  // 1990-01-01
-    const dateEnd   = 1609459200000; // 2021-01-01
-
-    const where = `workType = 'RoofWind' AND issueDate >= ${dateStart} AND issueDate <= ${dateEnd} AND (occupancyType = 'Comm' OR occupancyType = 'MFD' OR occupancyType = 'Ind')`;
-
     const queryString = [
       `where=${encodeURIComponent(where)}`,
-      `outFields=permitNumber,permitType,workType,issueDate,fullName,applicantAddress1,applicantCity,value,occupancyType,status,Latitude,Longitude`,
-      `resultRecordCount=1000`,
-      `orderByFields=issueDate ASC`,
+      `outFields=permitNumber,workType,issueDate,applicantAddress1,applicantCity,value,occupancyType,fullName,Latitude,Longitude`,
+      `resultRecordCount=500`,
       `f=json`
     ].join('&');
 
-    const fullUrl = `${baseUrl}?${queryString}`;
-
-    const response = await fetch(fullUrl);
+    const response = await fetch(`${baseUrl}?${queryString}`);
     const text = await response.text();
-
-    if (!response.ok) {
-      return res.status(200).json({
-        error: `HTTP ${response.status}`,
-        preview: text.slice(0, 500)
-      });
-    }
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch(e) {
-      return res.status(200).json({
-        error: 'Could not parse JSON from city API',
-        preview: text.slice(0, 500)
-      });
-    }
+    const data = JSON.parse(text);
 
     if (data.error) {
       return res.status(200).json({
-        error: data.error.message || 'ArcGIS returned an error',
-        arcgisError: data.error,
-        queryUsed: where
+        step,
+        where,
+        error: data.error.message,
+        code: data.error.code
       });
     }
 
-    return res.status(200).json(data);
+    return res.status(200).json({
+      step,
+      where,
+      count: data.features?.length || 0,
+      sample: data.features?.slice(0,3).map(f => f.attributes) || []
+    });
 
   } catch(err) {
-    return res.status(200).json({
-      error: err.message,
-      type: err.constructor.name
-    });
+    return res.status(200).json({ step, where, error: err.message });
   }
 };
