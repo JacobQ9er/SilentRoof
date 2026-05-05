@@ -29,29 +29,30 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // All smart filtering done here in JS — no ArcGIS syntax issues
-    const dateStart = new Date('1990-01-01').getTime();
-    const dateEnd   = new Date('2021-01-01').getTime();
     const skipOccupancy = new Set(['SFD']); // exclude single family residential
 
     const filtered = (data.features || []).filter(f => {
       const p = f.attributes;
-      const inDateRange = p.issueDate >= dateStart && p.issueDate <= dateEnd;
       const notResidential = !skipOccupancy.has(p.occupancyType);
       const hasValue = (p.value || 0) > 0;
-      return inDateRange && notResidential && hasValue;
+      return notResidential && hasValue;
     });
 
-    // Show unique occupancy types found — for our reference
     const occupancyTypes = [...new Set(
       (data.features || []).map(f => f.attributes.occupancyType).filter(Boolean)
     )].sort();
+
+    // Show date range of what came back
+    const dates = (data.features||[]).map(f=>f.attributes.issueDate).filter(Boolean).sort();
+    const oldestDate = dates.length ? new Date(dates[0]).toISOString().slice(0,10) : null;
+    const newestDate = dates.length ? new Date(dates[dates.length-1]).toISOString().slice(0,10) : null;
 
     return res.status(200).json({
       features: filtered,
       totalFiltered: filtered.length,
       totalFromAPI: data.features?.length || 0,
-      occupancyTypesFound: occupancyTypes
+      occupancyTypesFound: occupancyTypes,
+      dateRange: { oldest: oldestDate, newest: newestDate }
     });
 
   } catch(err) {
