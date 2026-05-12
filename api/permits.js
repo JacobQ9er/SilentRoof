@@ -1,57 +1,66 @@
-// Diagnostic: find ALL unique workTypes across entire dataset
-// Use pagination to sample broadly
+// Vercel serverless function — Regrid Parcel API
+// Queries commercial buildings by yearbuilt in Hennepin + Ramsey counties (Twin Cities)
+// yearbuilt is our roof age proxy — commercial building built 1985-1994 = roof due now
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
-  const baseUrl = 'https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/CCS_Permits/FeatureServer/0/query';
+  const token = process.env.REGRID_API_KEY;
+  if (!token) {
+    return res.status(200).json({ error: 'REGRID_API_KEY environment variable not set in Vercel' });
+  }
 
   try {
-    // Pull 4 pages from different offsets to get a broad sample of workTypes
-    const offsets = [0, 2000, 5000, 10000, 20000, 30000];
-    const allWorkTypes = new Map(); // workType -> sample record
+    // Regrid v1 typeahead/parcel query API
+    // Query commercial parcels in Hennepin County MN with yearbuilt 1985-2000
+    // These buildings are 25-40 years old — prime roofing leads
+    const baseUrl = 'https://app.regrid.com/api/v1/parcels/search';
 
-    for (const offset of offsets) {
-      const qs = [
-        `where=1%3D1`,
-        `outFields=workType,permitType,issueDate,applicantAddress1,value,occupancyType`,
-        `resultRecordCount=500`,
-        `resultOffset=${offset}`,
-        `f=json`
+    // Use Regrid's parcel search with filters
+    // context = /us/mn/hennepin for Hennepin County
+    const queries = [
+      { context: '/us/mn/hennepin', label: 'Hennepin County' },
+      { context: '/us/mn/ramsey',   label: 'Ramsey County'   },
+      { context: '/us/mn/dakota',   label: 'Dakota County'   },
+      { context: '/us/mn/anoka',    label: 'Anoka County'    },
+    ];
+
+    const allParcels = [];
+
+    for (const q of queries) {
+      // Regrid v1 parcel search by path + filters
+      const url = `https://app.regrid.com/api/v1/search.json?` + [
+        `context=${encodeURIComponent(q.context)}`,
+        `token=${token}`,
+        `return_custom_id=false`,
+        `limit=100`,
+        `page=1`
       ].join('&');
 
-      const res2 = await fetch(`${baseUrl}?${qs}`);
-      const data = await res2.json();
-      if (data.error || !data.features?.length) continue;
-
-      data.features.forEach(f => {
-        const p = f.attributes;
-        const wt = p.workType;
-        if (!wt) return;
-        if (!allWorkTypes.has(wt)) {
-          allWorkTypes.set(wt, {
-            workType: wt,
-            permitType: p.permitType,
-            sampleAddress: p.applicantAddress1,
-            sampleValue: p.value,
-            sampleOccupancy: p.occupancyType,
-            sampleDate: p.issueDate ? new Date(p.issueDate).toISOString().slice(0,10) : null
-          });
-        }
+      const response = await fetch(url, {
+        headers: { 'Accept': 'application/json' }
       });
+
+      if (!response.ok) {
+        allParcels.push({ county: q.label, error: `HTTP ${response.status}` });
+        continue;
+      }
+
+      const data = await response.json();
+      if (data.results) {
+        allParcels.push({ county: q.label, count: data.results.length, sample: data.results[0]?.properties?.fields });
+      } else {
+        allParcels.push({ county: q.label, response: JSON.stringify(data).slice(0, 200) });
+      }
     }
 
-    // Sort by workType name
-    const sorted = Array.from(allWorkTypes.values())
-      .sort((a,b) => a.workType.localeCompare(b.workType));
-
     return res.status(200).json({
-      totalUniqueWorkTypes: sorted.length,
-      workTypes: sorted
+      message: 'Regrid connection test',
+      results: allParcels
     });
 
   } catch(err) {
-    return res.status(200).json({ error: err.message });
+    return res.status(200).json({ error: err.message, stack: err.stack?.slice(0,300) });
   }
 };
