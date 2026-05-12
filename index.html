@@ -215,11 +215,14 @@ function fmtDate(d){ return new Date(d+'T00:00:00').toLocaleDateString('en-US',{
 function fmtYears(y){ return y<0?'Overdue '+Math.abs(y).toFixed(1)+'yr':y.toFixed(1)+' yrs'; }
 
 function buildInsight(l){
-  const age = NOW_YEAR - new Date(l.permitDate+'T00:00:00').getFullYear();
+  const age = l.yearBuilt
+    ? NOW_YEAR - l.yearBuilt
+    : l.permitDate ? NOW_YEAR - new Date(l.permitDate+'T00:00:00').getFullYear() : 30;
   const t = getTier(l.yearsLeft);
-  if(t==='hot') return `This ${(l.type||'commercial property').toLowerCase()} had its last roofing permit ${age} years ago — at or past the 30-year commercial cycle. Budget planning typically begins 12–18 months before work starts. Outreach now puts you in the decision window.`;
-  if(t==='warm') return `Roof system is ${age} years old with roughly ${Math.round(l.yearsLeft)} years left in its lifecycle. Starting conversations now positions you ahead of formal bidding. Decision-makers at this property type typically plan 6–12 months ahead.`;
-  return `${age}-year-old roof with ${Math.round(l.yearsLeft)}+ years remaining. Add to long-range pipeline. A relationship-building touchpoint now means you're the first call when they enter the planning window.`;
+  const typeLabel = (l.type||'commercial property').toLowerCase();
+  if(t==='hot') return `This ${typeLabel} was built ${age} years ago and is at or past the 30-year commercial roof cycle. Budget planning typically begins 12-18 months before work starts. Outreach now puts you in the decision window.`;
+  if(t==='warm') return `Building is ${age} years old with roughly ${Math.round(l.yearsLeft)} years left in the roof lifecycle. Starting conversations now positions you ahead of formal bidding. Decision-makers at this property type typically plan 6-12 months ahead.`;
+  return `${age}-year-old building with ${Math.round(l.yearsLeft)}+ years remaining in the roof cycle. Add to long-range pipeline. A relationship-building touchpoint now means you are the first call when they enter the planning window.`;
 }
 
 function processLeads(raw, source){
@@ -268,67 +271,16 @@ async function startScan(){
     fill.style.width='60%'; msg.textContent=`Processing ${data.features?.length||0} records...`;
     await sleep(300);
 
-    const OCCUPANCY = {
-      'Comm': 'Commercial',
-      'MFD':  'Multi-Family',
-      'Ind':  'Industrial',
-      'SFD':  'Single Family',
-      'Inst': 'Institutional',
-    };
-
-    // Dedupe by address — keep most recent permit per address
-    const seen = new Map();
-    (data.features||[]).forEach(f => {
-      const p = f.attributes;
-      if(!p.applicantAddress1 || !p.issueDate) return;
-      const key = p.applicantAddress1.toLowerCase().trim();
-      if(!seen.has(key) || p.issueDate > seen.get(key).issueDate) {
-        seen.set(key, p);
-      }
-    });
-
-    const raw = Array.from(seen.values()).map((p, i) => {
-      const dateMs = p.issueDate;
-      if(!dateMs) return null;
-      const dateStr = new Date(dateMs).toISOString().slice(0,10);
-      const yearsLeft = calcYearsLeft(dateStr);
-      // Only include buildings within our scoring window
-      if(yearsLeft > 30) return null; // only exclude truly new roofs
-      return {
-        id: i+1,
-        name: p.fullName || p.applicantAddress1 || 'Commercial Property',
-        addr: p.applicantAddress1 || '—',
-        city: p.applicantCity || 'Minneapolis',
-        zip: '',
-        type: OCCUPANCY[p.occupancyType] || p.occupancyType || 'Commercial',
-        permitDate: dateStr,
-        permitNum: p.permitNumber || '—',
-        estVal: p.value || 0,
-        lat: p.Latitude || null,
-        lng: p.Longitude || null,
-        yearsLeft,
-        tier: getTier(yearsLeft),
-        score: calcScore(yearsLeft),
-        source: 'live'
-      };
-    });
-
-    const deduped = raw
-      .filter(Boolean)
-      .sort((a,b) => a.yearsLeft - b.yearsLeft);
-
-    // DIAGNOSTIC — remove after confirmed working
-    console.log('Total from API:', data.features?.length);
-    console.log('Total after dedupe/filter:', deduped.length);
-    console.log('Sample yearsLeft values:', deduped.slice(0,5).map(l => ({addr:l.addr, yearsLeft:l.yearsLeft, tier:l.tier})));
-    if(deduped.length === 0 && data.features?.length > 0) {
-      const sample = data.features[0].attributes;
-      const sampleDate = new Date(sample.issueDate).toISOString().slice(0,10);
-      const sampleYears = calcYearsLeft(sampleDate);
-      setStatus(`Data arrived but filtered out. Sample: ${sampleDate} = ${sampleYears.toFixed(1)} yrs left. Check yearsLeft > 12 filter.`, '#ff9f0a');
-    }
-
-    deduped.forEach(l => { l.insight = buildInsight(l); });
+    // Regrid returns pre-scored leads — add tier, score, insight
+    const deduped = (data.features || [])
+      .map((l, i) => ({
+        ...l,
+        id: i + 1,
+        tier: getTier(l.yearsLeft),
+        score: calcScore(l.yearsLeft),
+        insight: buildInsight(l)
+      }))
+      .sort((a, b) => a.yearsLeft - b.yearsLeft);
 
     fill.style.width='100%'; msg.textContent=`${deduped.length} leads scored`;
     await sleep(400);
@@ -495,8 +447,8 @@ function selectLead(id){
       <div class="detail-section">
         <div class="detail-section-title">Permit record</div>
         <div class="detail-row"><span class="detail-key">Permit #</span><span class="detail-val">${l.permitNum||'—'}</span></div>
-        <div class="detail-row"><span class="detail-key">Issued</span><span class="detail-val">${fmtDate(l.permitDate)}</span></div>
-        <div class="detail-row"><span class="detail-key">Cycle hits</span><span class="detail-val">${new Date(l.permitDate+'T00:00:00').getFullYear()+CYCLE}</span></div>
+        <div class="detail-row"><span class="detail-key">Year built</span><span class="detail-val">${l.yearBuilt || fmtDate(l.permitDate)}</span></div>
+        <div class="detail-row"><span class="detail-key">Cycle hits</span><span class="detail-val">${(l.yearBuilt || new Date(l.permitDate+'T00:00:00').getFullYear())+CYCLE}</span></div>
       </div>
     </div>
     <div class="action-btns">
