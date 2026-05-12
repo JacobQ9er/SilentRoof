@@ -124,13 +124,6 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <button class="topbar-btn" onclick="exportCSV()" id="exportBtn">Export CSV</button>
       <select id="pageSelect" style="font-family:var(--mono);font-size:10px;background:var(--card);border:1px solid var(--border2);color:var(--muted);padding:6px 8px;border-radius:3px;cursor:pointer" onchange="startScan()">
         <option value="0">Records 1–500</option>
-        <option value="1">Records 501–1000</option>
-        <option value="2">Records 1001–1500</option>
-        <option value="3">Records 1501–2000</option>
-        <option value="4">Records 2001–2500</option>
-        <option value="5">Records 2501–3000</option>
-        <option value="6">Records 3001–3500</option>
-        <option value="7">Records 3501–4000</option>
       </select>
       <button class="topbar-btn primary" onclick="startScan()" id="scanBtn">⟳ Pull Live Data</button>
     </div>
@@ -494,6 +487,34 @@ function exportSingle(id){
 }
 
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// Build page dropdown dynamically from total record count
+async function buildPageDropdown(){
+  try {
+    const r = await fetch('/api/permits?count=1');
+    const data = await r.json();
+    if(data.error || !data.totalPages) return;
+
+    const sel = document.getElementById('pageSelect');
+    sel.innerHTML = '';
+    for(let i = 0; i < data.totalPages; i++){
+      const start = (i * data.pageSize) + 1;
+      const end = Math.min((i + 1) * data.pageSize, data.total);
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `Records ${start.toLocaleString()}–${end.toLocaleString()}`;
+      sel.appendChild(opt);
+    }
+
+    // Update status with total count
+    setStatus(`${data.total.toLocaleString()} total leads available — select a page and pull`, '#00c8ff');
+  } catch(e) {
+    console.log('Could not fetch total count:', e.message);
+  }
+}
+
+// Init — build dropdown on page load
+buildPageDropdown();
 </script>
 </body>
 </html>
