@@ -122,6 +122,16 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="pulse-dot live" id="statusDot"></div>
       <span class="live-label" id="statusLabel">Ready</span>
       <button class="topbar-btn" onclick="exportCSV()" id="exportBtn">Export CSV</button>
+      <select id="pageSelect" style="font-family:var(--mono);font-size:10px;background:var(--card);border:1px solid var(--border2);color:var(--muted);padding:6px 8px;border-radius:3px;cursor:pointer" onchange="startScan()">
+        <option value="0">Records 1–500</option>
+        <option value="1">Records 501–1000</option>
+        <option value="2">Records 1001–1500</option>
+        <option value="3">Records 1501–2000</option>
+        <option value="4">Records 2001–2500</option>
+        <option value="5">Records 2501–3000</option>
+        <option value="6">Records 3001–3500</option>
+        <option value="7">Records 3501–4000</option>
+      </select>
       <button class="topbar-btn primary" onclick="startScan()" id="scanBtn">⟳ Pull Live Data</button>
     </div>
   </div>
@@ -256,7 +266,8 @@ async function startScan(){
     await sleep(300);
 
     // Call OUR Vercel API route — not the city directly
-    const res = await fetch('/api/permits');
+    const page = document.getElementById('pageSelect')?.value || '0';
+    const res = await fetch(`/api/permits?page=${page}`);
     if(!res.ok) throw new Error(`Server returned ${res.status}`);
     const data = await res.json();
 
@@ -441,8 +452,10 @@ function selectLead(id){
         <div class="detail-row"><span class="detail-key">Address</span><span class="detail-val">${l.addr}</span></div>
         <div class="detail-row"><span class="detail-key">City / Zip</span><span class="detail-val">${l.city} ${l.zip}</span></div>
         <div class="detail-row"><span class="detail-key">Type</span><span class="detail-val">${l.type}</span></div>
-        <div class="detail-row"><span class="detail-key">Roof age</span><span class="detail-val">${age} years</span></div>
-        ${l.estVal?`<div class="detail-row"><span class="detail-key">Permit value</span><span class="detail-val">$${parseInt(l.estVal).toLocaleString()}</span></div>`:''}
+        <div class="detail-row"><span class="detail-key">Building age</span><span class="detail-val">${age} years</span></div>
+        ${l.sqft?`<div class="detail-row"><span class="detail-key">Est. roof sq ft</span><span class="detail-val">${l.sqft.toLocaleString()} sq ft</span></div>`:''}
+        ${l.estVal?`<div class="detail-row"><span class="detail-key">Building value</span><span class="detail-val">$${parseInt(l.estVal).toLocaleString()}</span></div>`:''}
+        ${l.estLow?`<div class="detail-row"><span class="detail-key">Est. contract</span><span class="detail-val">$${l.estLow.toLocaleString()} – $${l.estHigh.toLocaleString()}</span></div>`:''}
       </div>
       <div class="detail-section">
         <div class="detail-section-title">Permit record</div>
