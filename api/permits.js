@@ -1,6 +1,5 @@
-// Vercel serverless function — Regrid Parcel API
-// Queries commercial parcels in Twin Cities metro by yearbuilt
-// yearbuilt 1985-2000 = roofs hitting 25-40yr cycle = hot/warm leads
+// Force Node.js runtime — required for fetch to external APIs on Vercel free tier
+export const config = { runtime: 'nodejs' };
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,106 +7,101 @@ module.exports = async function handler(req, res) {
 
   const token = process.env.REGRID_API_KEY;
   if (!token) {
-    return res.status(200).json({ error: 'REGRID_API_KEY not set in environment variables' });
+    return res.status(200).json({ error: 'REGRID_API_KEY not set' });
+  }
+
+  // Ping test — /api/permits?ping=1
+  if (req.query && req.query.ping === '1') {
+    try {
+      const url = `https://app.regrid.com/api/v1/search.json?query=office&path=/us/mn/hennepin&limit=2&token=${token}`;
+      const r = await fetch(url);
+      const text = await r.text();
+      return res.status(200).json({
+        ping: true,
+        httpStatus: r.status,
+        preview: text.slice(0, 400)
+      });
+    } catch(e) {
+      return res.status(200).json({ ping: true, error: e.message });
+    }
   }
 
   try {
-    // Regrid v1 typeahead/parcel query
-    // Search commercial parcels in Hennepin County MN by use type + year built range
-    // usedesc filters for commercial/office/industrial/retail building types
-    // We make multiple queries to cover different commercial use codes
-
-    const commercialQueries = [
-      { path: '/us/mn/hennepin', query: 'office' },
-      { path: '/us/mn/hennepin', query: 'commercial' },
-      { path: '/us/mn/ramsey',   query: 'office' },
-      { path: '/us/mn/ramsey',   query: 'commercial' },
+    // Query Regrid for commercial parcels in Twin Cities counties
+    // yearbuilt 1985-2000 = buildings hitting 30yr roof cycle 2015-2030
+    const searches = [
+      { path: '/us/mn/hennepin', query: 'commercial office industrial' },
+      { path: '/us/mn/ramsey',   query: 'commercial office industrial' },
+      { path: '/us/mn/dakota',   query: 'commercial office industrial' },
+      { path: '/us/mn/anoka',    query: 'commercial office industrial' },
     ];
 
-    // Use Regrid's parcel query API with yearbuilt filter
-    // GET /api/v1/query.json — filter by path (county), yearbuilt range, struct=true
     const allParcels = [];
 
-    for (const cq of commercialQueries) {
-      const params = new URLSearchParams({
-        token,
-        path:       cq.path,
-        query:      cq.query,
-        strict:     '0',
-        limit:      '100',
-        fields:     'yearbuilt,usedesc,structstyle,owner,address,city,state,zip,ll_uuid,parval,lat,lon',
-      });
+    for (const s of searches) {
+      try {
+        const params = new URLSearchParams({
+          token,
+          path:  s.path,
+          query: s.query,
+          limit: '100',
+        });
 
-      const url = `https://app.regrid.com/api/v1/search.json?${params}`;
-      const response = await fetch(url);
-      const text = await response.text();
+        const url = `https://app.regrid.com/api/v1/search.json?${params}`;
+        const r = await fetch(url);
+        if (!r.ok) continue;
 
-      let data;
-      try { data = JSON.parse(text); } catch(e) {
+        const data = await r.json();
+        if (data.results?.length) {
+          allParcels.push(...data.results);
+        }
+      } catch(e) {
         continue;
       }
-
-      if (data.results && Array.isArray(data.results)) {
-        allParcels.push(...data.results);
-      }
     }
 
-    if (allParcels.length === 0) {
-      // Try a direct parcel query by county path to see what's available
-      const testUrl = `https://app.regrid.com/api/v1/parcel.json?path=/us/mn/hennepin&limit=5&token=${token}`;
-      const testRes = await fetch(testUrl);
-      const testData = await testRes.json();
-      return res.status(200).json({
-        debug: true,
-        message: 'No results from search queries — showing raw parcel test',
-        testResponse: testData
-      });
-    }
-
-    // Filter and score parcels
     const NOW_YEAR = new Date().getFullYear();
     const CYCLE = 30;
 
     const leads = allParcels
-      .filter(f => {
-        const fields = f.properties?.fields || {};
-        const yb = parseInt(fields.yearbuilt);
-        const hasStruct = fields.struct !== false;
-        return yb >= 1985 && yb <= 2005 && hasStruct;
-      })
       .map((f, i) => {
         const fields = f.properties?.fields || {};
         const yb = parseInt(fields.yearbuilt);
-        const cycleYear = yb + CYCLE;
-        const yearsLeft = cycleYear - NOW_YEAR;
+        if (!yb || yb < 1985 || yb > 2005) return null;
+
+        const yearsLeft = (yb + CYCLE) - NOW_YEAR;
 
         return {
           id: i + 1,
           name: fields.owner || fields.address || 'Commercial Property',
           addr: fields.address || f.properties?.headline || '—',
-          city: fields.city || '—',
+          city: fields.city2 || fields.scity || '—',
           zip: fields.zip || '',
           type: fields.structstyle || fields.usedesc || 'Commercial',
           yearBuilt: yb,
-          cycleYear,
           yearsLeft,
+          permitDate: `${yb}-01-01`,
+          permitNum: fields.parcelnumb || '—',
           estVal: fields.parval || 0,
           lat: fields.lat || null,
           lng: fields.lon || null,
-          permitDate: `${yb}-01-01`, // use year built as proxy
-          permitNum: fields.ll_uuid || '—',
           source: 'live'
         };
       })
+      .filter(Boolean)
       .sort((a, b) => a.yearsLeft - b.yearsLeft);
 
     return res.status(200).json({
       features: leads,
       totalFiltered: leads.length,
-      totalFromAPI: allParcels.length
+      totalFromAPI: allParcels.length,
+      message: leads.length === 0 ? 'No parcels matched yearbuilt filter — check debug endpoint' : 'ok'
     });
 
   } catch(err) {
-    return res.status(200).json({ error: err.message, stack: err.stack?.slice(0,300) });
+    return res.status(200).json({
+      error: err.message,
+      stack: err.stack?.slice(0, 400)
+    });
   }
 };
