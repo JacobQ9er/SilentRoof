@@ -1,15 +1,14 @@
-// Diagnostic — find correct layer index in Hennepin County FeatureServer
+// Diagnostic — list all available services on Hennepin County ArcGIS server
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   try {
-    // Check the FeatureServer root — lists all available layers
     const urls = [
-      'https://gis.hennepin.us/arcgis/rest/services/HennepinData/COUNTY_PARCELS_TEST/FeatureServer?f=json',
-      'https://gis.hennepin.us/arcgis/rest/services/HennepinData/COUNTY_PARCELS_TEST/FeatureServer/0?f=json',
-      'https://gis.hennepin.us/arcgis/rest/services/HennepinData/COUNTY_PARCELS_TEST/MapServer?f=json',
+      'https://gis.hennepin.us/arcgis/rest/services?f=json',
+      'https://gis.hennepin.us/arcgis/rest/services/HennepinData?f=json',
+      'https://gis.hennepin.us/arcgis/rest/services/Geoprocessing?f=json',
     ];
 
     const results = [];
@@ -21,10 +20,9 @@ module.exports = async function handler(req, res) {
         results.push({
           url,
           status: r.status,
-          layers: data.layers?.map(l => ({ id: l.id, name: l.name })) || null,
-          fields: data.fields?.map(f => f.name) || null,
-          error: data.error?.message || null,
-          maxRecordCount: data.maxRecordCount || null,
+          folders: data.folders || null,
+          services: data.services?.map(s => `${s.name} (${s.type})`) || null,
+          error: data.error?.message || null
         });
       } catch(e) {
         results.push({ url, error: e.message });
