@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>SilentRoof — AI Lead Intelligence</title>
+<title>SilentRoof â AI Lead Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -106,6 +106,72 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 @keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
 .source-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:2px;font-family:var(--mono);font-size:9px;border:1px solid var(--border2);color:var(--muted2)}
 .source-badge.live{border-color:rgba(48,209,88,.3);color:var(--watch)}
+
+/* PERMIT VERIFICATION */
+.permit-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:3px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap}
+.permit-badge.clear{background:rgba(48,209,88,.1);color:var(--watch);border:1px solid rgba(48,209,88,.3)}
+.permit-badge.flagged{background:rgba(255,59,48,.1);color:var(--hot);border:1px solid rgba(255,59,48,.3)}
+.permit-badge.unknown{background:rgba(255,159,10,.08);color:var(--warm);border:1px solid rgba(255,159,10,.25)}
+.permit-badge.checking{background:rgba(0,200,255,.08);color:var(--accent);border:1px solid rgba(0,200,255,.2)}
+.permit-result-card{background:var(--card);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;margin-top:8px}
+.permit-result-row{font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;padding:3px 0;border-bottom:1px solid rgba(30,45,69,.4)}
+.permit-result-row:last-child{border-bottom:none}
+.permit-result-row strong{color:var(--text)}
+/* Row-level verify badge in the lead list */
+.row-permit-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:none}
+.row-permit-dot.clear{background:var(--watch);display:inline-block}
+.row-permit-dot.flagged{background:var(--hot);display:inline-block;box-shadow:0 0 4px var(--hot)}
+.row-permit-dot.unknown{background:var(--warm);display:inline-block}
+
+/* PIPELINE CRM */
+.pipeline-wrap{padding:20px;overflow-y:auto;height:calc(100vh - 97px)}
+.pipeline-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.pipeline-title{font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.3px}
+.pipeline-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.pipeline-stat{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:12px;text-align:center}
+.pipeline-stat-num{font-family:var(--mono);font-size:20px;font-weight:600}
+.pipeline-stat-label{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.5px}
+.pipeline-board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.pipeline-col{background:var(--surface);border:1px solid var(--border);border-radius:4px;min-height:400px;display:flex;flex-direction:column}
+.pipeline-col-header{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.pipeline-col-title{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600}
+.pipeline-col-count{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--card);padding:2px 6px;border-radius:10px}
+.pipeline-cards{padding:8px;display:flex;flex-direction:column;gap:6px;flex:1}
+.pipeline-card{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:10px;cursor:pointer;transition:border-color .15s}
+.pipeline-card:hover{border-color:var(--accent)}
+.pipeline-card-name{font-size:11px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pipeline-card-addr{font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrax;overflow:hidden;text-overflow:ellipsis}
+.pipeline-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.pipeline-card-tier{font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:2px}
+.pipeline-card-val{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.pipeline-empty{padding:20px;text-align:center;font-size:10px;color:var(--muted2);font-family:var(--mono)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:6px;width:560px;max-height:85vh;overflow-y:auto;padding:24px;position:relative}
+.modal-title{font-family:var(--display);font-size:16px;font-weight:700;margin-bottom:16px;color:var(--text)}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+.modal-field{margin-bottom:12px}
+.modal-field label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:4px}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--card);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px 10px;outline:none}
+.modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent)}
+.modal-field textarea{resize:vertical;min-height:80px}
+.modal-btns{display:flex;gap:8px;margin-top:16px}
+.modal-btn{padding:8px 16px;border-radius:3px;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+.modal-btn:hover{border-color:var(--accent);color:var(--accent)}
+.modal-btn.primary{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.modal-btn.danger{border-color:var(--hot);color:var(--hot)}
+.email-output{background:var(--card);border:1px solid var(--border2);border-radius:4px;padding:14px;font-size:12px;color:var(--text);line-height:1.8;white-space:pre-wrap;margin-top:12px;font-family:var(--mono)}
+.notes-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.note-item{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:8px 10px;font-size:11px;color:var(--muted);line-height:1.6}
+.note-time{font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:3px}
+
+
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border)}
+.tab{padding:11px 20px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+
 </style>
 </head>
 <body>
@@ -121,27 +187,33 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <div class="topbar-right">
       <div class="pulse-dot live" id="statusDot"></div>
       <span class="live-label" id="statusLabel">Ready</span>
+      <button class="topbar-btn" onclick="verifyAllLeads()" id="verifyBtn" title="Check permit records for all loaded leads">â¬¡ Verify Leads</button>
       <button class="topbar-btn" onclick="exportCSV()" id="exportBtn">Export CSV</button>
       <select id="pageSelect" style="font-family:var(--mono);font-size:10px;background:var(--card);border:1px solid var(--border2);color:var(--muted);padding:6px 8px;border-radius:3px;cursor:pointer" onchange="startScan()">
-        <option value="0">Records 1–500</option>
+        <option value="0">Records 1â500</option>
       </select>
-      <button class="topbar-btn primary" onclick="startScan()" id="scanBtn">⟳ Pull Live Data</button>
+      <button class="topbar-btn primary" onclick="startScan()" id="scanBtn">â³ Pull Live Data</button>
     </div>
   </div>
+  <div class="tabs" id="tabBar">
+    <div class="tab active" onclick="switchTab(this,'leads')">Lead Intelligence</div>
+    <div class="tab" onclick="switchTab(this,'pipeline')">Pipeline CRM</div>
+  </div>
+  <div id="view-leads" style="display:contents">
   <div class="main">
     <div class="sidebar">
       <div class="sidebar-section">
         <div class="sidebar-label">Pipeline</div>
-        <div class="stat-card"><div class="stat-num hot" id="hotCount">—</div><div class="stat-label">Hot — under 2 yrs</div></div>
-        <div class="stat-card"><div class="stat-num warm" id="warmCount">—</div><div class="stat-label">Warm — 2–5 yrs</div></div>
-        <div class="stat-card"><div class="stat-num watch" id="watchCount">—</div><div class="stat-label">Watch — 5–10 yrs</div></div>
-        <div class="stat-card"><div class="stat-num total" id="totalCount">—</div><div class="stat-label">Total leads</div></div>
+        <div class="stat-card"><div class="stat-num hot" id="hotCount">â</div><div class="stat-label">Hot â under 2 yrs</div></div>
+        <div class="stat-card"><div class="stat-num warm" id="warmCount">â</div><div class="stat-label">Warm â 2â5 yrs</div></div>
+        <div class="stat-card"><div class="stat-num watch" id="watchCount">â</div><div class="stat-label">Watch â 5â10 yrs</div></div>
+        <div class="stat-card"><div class="stat-num total" id="totalCount">â</div><div class="stat-label">Total leads</div></div>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Territory tier</div>
-        <button class="tier-option" onclick="setTier('starter',this)"><span>Starter — Core city</span><span class="tier-price">$299/mo</span></button>
-        <button class="tier-option active" onclick="setTier('pro',this)"><span>Pro — Metro + suburbs</span><span class="tier-price">$499/mo</span></button>
-        <button class="tier-option" onclick="setTier('state',this)"><span>State — All MN</span><span class="tier-price">$899/mo</span></button>
+        <button class="tier-option" onclick="setTier('starter',this)"><span>Starter â Core city</span><span class="tier-price">$299/mo</span></button>
+        <button class="tier-option active" onclick="setTier('pro',this)"><span>Pro â Metro + suburbs</span><span class="tier-price">$499/mo</span></button>
+        <button class="tier-option" onclick="setTier('state',this)"><span>State â All MN</span><span class="tier-price">$899/mo</span></button>
         <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);padding:6px 2px;line-height:1.6">First to pay locks territory.<br>Exclusive per tier per metro.</div>
       </div>
       <div class="search-wrap">
@@ -166,8 +238,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
         <span class="scan-msg" id="scanMsg">Connecting...</span>
       </div>
-      <div class="list-header">
-        <span></span><span>Property / Address</span><span>City</span><span>Permit date</span><span>Yrs left</span><span>Score</span>
+      <div class="list-header" style="grid-template-columns:28px 1fr 80px 90px 80px 60px 32px">
+        <span></span><span>Property / Address</span><span>City</span><span>Year built</span><span>Yrs left</span><span>Score</span><span title="Permit verification">â</span>
       </div>
       <div id="leadList">
         <div class="loading-center">
@@ -238,7 +310,7 @@ function processLeads(raw, source){
     }, {});
 }
 
-// ── LIVE SCAN ──────────────────────────────────────────────────────────────────
+// ââ LIVE SCAN ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function startScan(){
   const btn=document.getElementById('scanBtn');
   const dot=document.getElementById('statusDot');
@@ -258,13 +330,13 @@ async function startScan(){
     fill.style.width='20%'; msg.textContent='Calling server-side proxy...';
     await sleep(300);
 
-    // Call OUR Vercel API route — not the city directly
+    // Call OUR Vercel API route â not the city directly
     const page = document.getElementById('pageSelect')?.value || '0';
     const res = await fetch(`/api/permits?page=${page}`);
     if(!res.ok) throw new Error(`Server returned ${res.status}`);
     const data = await res.json();
 
-    // Debug mode — city API returned different field names
+    // Debug mode â city API returned different field names
     if(data.debug){
       showFieldDebug(data.availableFields, data.error);
       return;
@@ -275,7 +347,7 @@ async function startScan(){
     fill.style.width='60%'; msg.textContent=`Processing ${data.features?.length||0} records...`;
     await sleep(300);
 
-    // Regrid returns pre-scored leads — add tier, score, insight
+    // Regrid returns pre-scored leads â add tier, score, insight
     const deduped = (data.features || [])
       .map((l, i) => ({
         ...l,
@@ -291,7 +363,7 @@ async function startScan(){
 
     allLeads = deduped;
     dataSource = 'live';
-    document.getElementById('lastScan').textContent = 'Live — '+new Date().toLocaleTimeString();
+    document.getElementById('lastScan').textContent = 'Live â '+new Date().toLocaleTimeString();
     dot.className='pulse-dot live'; lbl.className='live-label'; lbl.textContent='Live';
     updateCounts(); renderList();
 
@@ -299,7 +371,7 @@ async function startScan(){
     document.getElementById('leadList').innerHTML=`
       <div class="loading-center">
         <div style="color:var(--hot);font-family:var(--mono);font-size:11px;margin-bottom:8px">Connection error</div>
-        <div style="color:var(--muted);font-size:11px;line-height:1.8;margin-bottom:16px">${err.message}<br><br>Check Vercel function logs:<br>vercel.com → your project → Functions tab</div>
+        <div style="color:var(--muted);font-size:11px;line-height:1.8;margin-bottom:16px">${err.message}<br><br>Check Vercel function logs:<br>vercel.com â your project â Functions tab</div>
         <button class="topbar-btn primary" onclick="loadDemo()">Load Demo Data Instead</button>
       </div>`;
     dot.className='pulse-dot live'; lbl.className='live-label'; lbl.textContent='Error';
@@ -326,7 +398,7 @@ function showFieldDebug(fields, originalError){
   document.getElementById('statusDot').className='pulse-dot live';
 }
 
-// ── DEMO ───────────────────────────────────────────────────────────────────────
+// ââ DEMO âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function loadDemo(){
   const processed = DEMO.map(l => {
     const yearsLeft = calcYearsLeft(l.permitDate);
@@ -339,7 +411,7 @@ function loadDemo(){
   updateCounts(); renderList();
 }
 
-// ── TIER / FILTER ──────────────────────────────────────────────────────────────
+// ââ TIER / FILTER ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function setTier(tier,btn){
   currentTier=tier;
   document.querySelectorAll('.tier-option').forEach(b=>b.classList.remove('active'));
@@ -362,7 +434,7 @@ function getVisibleLeads(){
     leads = leads.filter(l => TIER_ZIPS.starter.has(l.zip));
   }
   if(dataSource==='demo'){
-    leads = currentTier==='starter' ? leads.slice(0,4) : currentTier==='pro' ? leads.slice(0,7) : leads;
+    leads = currentTier==='starter' ? leads.slice(0,4) : currentTier==='pro'? leads.slice(0,7) : leads;
   }
   if(activeFilter!=='all') leads=leads.filter(l=>l.tier===activeFilter);
   if(activeSearch) leads=leads.filter(l=>
@@ -382,7 +454,7 @@ function updateCounts(){
   const watch=base.filter(l=>l.tier==='watch').length;
   document.getElementById('hotCount').textContent=hot;
   document.getElementById('warmCount').textContent=warm;
-  document.getElementById('watchCount').textContent=watch;
+  document.getElemmentById('watchCount').textContent=watch;
   document.getElementById('totalCount').textContent=base.length;
   document.getElementById('fc-all').textContent=base.length;
   document.getElementById('fc-hot').textContent=hot;
@@ -396,21 +468,32 @@ function renderList(){
     document.getElementById('leadList').innerHTML='<div style="padding:32px;text-align:center;font-size:11px;color:var(--muted)">No leads match this filter.</div>';
     return;
   }
-  document.getElementById('leadList').innerHTML=leads.map((l,i)=>`
-    <div class="lead-row${selectedId===l.id?' selected':''}" onclick="selectLead(${l.id})" style="animation-delay:${i*.025}s">
+  document.getElementById('leadList').innerHTML=leads.map((l,i)=>{
+    const pv = permitCache[l.id] || {};
+    const dotClass = pv.status ? pv.status.toLowerCase() : '';
+    const dotTitle = pv.status === 'CLEAR' ? 'No roof permits found â HOT'
+      : pv.status === 'FLAGGED' ? `${pv.permitCount} roof permit(s) found â verify`
+      : pv.status === 'UNKNOWN' ? 'Permit data unavailable â manual check'
+      : 'Not yet verified';
+    return `
+    <div class="lead-row${selectedId===l.id?' selected':''}" onclick="selectLead(${l.id})" style="animation-delay:${i*.025}s;grid-template-columns:28px 1fr 80px 90px 80px 60px 32px">
       <div class="tier-bar ${l.tier}"></div>
       <div style="min-width:0">
         <div class="lead-name">${l.name}</div>
         <div class="lead-addr">${l.addr}${l.city&&l.city!==l.name?', '+l.city:''}</div>
       </div>
-      <div class="lead-cell" style="font-size:10px">${l.city||'—'}</div>
-      <div class="lead-cell" style="color:var(--text)">${fmtDate(l.permitDate)}</div>
+      <div class="lead-cell" style="font-size:10px">${l.city||'â'}</div>
+      <div class="lead-cell" style="color:var(--text)">${l.yearBuilt || fmtDate(l.permitDate)}</div>
       <div><span class="years-pill ${l.tier}">${fmtYears(l.yearsLeft)}</span></div>
       <div style="display:flex;align-items:center;gap:4px">
         <div class="score-bar"><div class="score-fill" style="width:${l.score}%;background:${tierColor(l.tier)}"></div></div>
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:20px">${l.score}</span>
       </div>
-    </div>`).join('');
+      <div style="display:flex;align-items:center;justify-content:center">
+        <span class="row-permit-dot ${dotClass}" title="${dotTitle}"></span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function selectLead(id){
@@ -436,7 +519,7 @@ function selectLead(id){
       </div>
       <div class="detail-section">
         <div class="detail-section-title">Urgency</div>
-        <div class="detail-row"><span class="detail-key">Tier</span><span class="urgency-badge ${l.tier}">${l.tier==='hot'?'Hot — Act Now':l.tier==='warm'?'Warm — Engage Soon':'Watch'}</span></div>
+        <div class="detail-row"><span class="detail-key">Tier</span><span class="urgency-badge ${l.tier}">${l.tier==='hot'?'Hot â Act Now':l.tier==='warm'?'Warm â Engage Soon':'Watch'}</span></div>
         <div class="detail-row"><span class="detail-key">Years remaining</span><span class="detail-val" style="color:${tierColor(l.tier)}">${fmtYears(l.yearsLeft)}</span></div>
         <div class="detail-row"><span class="detail-key">Lead score</span><span class="detail-val">${l.score}/100</span></div>
       </div>
@@ -448,19 +531,23 @@ function selectLead(id){
         <div class="detail-row"><span class="detail-key">Building age</span><span class="detail-val">${age} years</span></div>
         ${l.sqft?`<div class="detail-row"><span class="detail-key">Est. roof sq ft</span><span class="detail-val">${l.sqft.toLocaleString()} sq ft</span></div>`:''}
         ${l.estVal?`<div class="detail-row"><span class="detail-key">Building value</span><span class="detail-val">$${parseInt(l.estVal).toLocaleString()}</span></div>`:''}
-        ${l.estLow?`<div class="detail-row"><span class="detail-key">Est. contract</span><span class="detail-val">$${l.estLow.toLocaleString()} – $${l.estHigh.toLocaleString()}</span></div>`:''}
+        ${l.estLow?`<div class="detail-row"><span class="detail-key">Est. contract</span><span class="detail-val">$${l.estLow.toLocaleString()} â $${l.estHigh.toLocaleString()}</span></div>`:''}
       </div>
       <div class="detail-section">
-        <div class="detail-section-title">Permit record</div>
-        <div class="detail-row"><span class="detail-key">Permit #</span><span class="detail-val">${l.permitNum||'—'}</span></div>
+        <div class="detail-section-title">Property record</div>
+        <div class="detail-row"><span class="detail-key">Parcel ID</span><span class="detail-val">${l.permitNum||'â'}</span></div>
         <div class="detail-row"><span class="detail-key">Year built</span><span class="detail-val">${l.yearBuilt || fmtDate(l.permitDate)}</span></div>
         <div class="detail-row"><span class="detail-key">Cycle hits</span><span class="detail-val">${(l.yearBuilt || new Date(l.permitDate+'T00:00:00').getFullYear())+CYCLE}</span></div>
       </div>
+      <div class="detail-section" id="permitVerifySection-${l.id}">
+        <div class="detail-section-title">Roof permit verification</div>
+        ${renderPermitSection(l)}
+      </div>
     </div>
     <div class="action-btns">
-      <button class="action-btn cta" onclick="alert('Phase 2: AI agent will auto-draft personalized outreach for this lead.')">Draft AI outreach email</button>
+      <button class="action-btn cta" onclick="addToPipelineAndEmail(${JSON.stringify(l).replace(/`/g,'')})">Draft Outreach Email</button>
+      <button class="action-btn" onclick="addToPipeline(${JSON.stringify(l).replace(/`/g,'')});setStatus('Added to pipeline','var(--watch)')">Add to pipeline</button>
       <button class="action-btn" onclick="exportSingle(${l.id})">Export this lead</button>
-      <button class="action-btn" onclick="alert('Added to watch list.')">Add to watch list</button>
     </div>`;
 }
 
@@ -468,7 +555,7 @@ function exportCSV(){
   const leads=getVisibleLeads();
   if(!leads.length){alert('No leads to export.');return;}
   const h=['Name','Address','City','Zip','Type','Permit Date','Permit #','Years Remaining','Tier','Score','Source'];
-  const rows=leads.map(l=>[l.name,l.addr,l.city,l.zip,l.type,l.permitDate,l.permitNum||'—',l.yearsLeft.toFixed(1),l.tier,l.score,l.source].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const rows=leads.map(l=>[l.name,l.addr,l.city,l.zip,l.type,l.permitDate,l.permitNum||'â',l.yearsLeft.toFixed(1),l.tier,l.score,l.source].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const csv=[h.join(','),...rows].join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
@@ -479,7 +566,7 @@ function exportCSV(){
 function exportSingle(id){
   const l=allLeads.find(x=>x.id===id);
   const h=['Name','Address','City','Zip','Type','Permit Date','Permit #','Years Remaining','Tier','Score','Source'];
-  const row=[l.name,l.addr,l.city,l.zip,l.type,l.permitDate,l.permitNum||'—',l.yearsLeft.toFixed(1),l.tier,l.score,l.source].map(v=>'"'+v+'"').join(',');
+  const row=[l.name,l.addr,l.city,l.zip,l.type,l.permitDate,l.permitNum||'â',l.yearsLeft.toFixed(1),l.tier,l.score,l.source].map(v=>'"'+v+'"').join(',');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent([h.join(','),row].join('\n'));
   a.download='SilentRoof_Lead_'+(l.name||l.addr).replace(/\s+/g,'_')+'.csv';
@@ -502,19 +589,530 @@ async function buildPageDropdown(){
       const end = Math.min((i + 1) * data.pageSize, data.total);
       const opt = document.createElement('option');
       opt.value = i;
-      opt.textContent = `Records ${start.toLocaleString()}–${end.toLocaleString()}`;
+      opt.textContent = `Records ${start.toLocaleString()}â${end.toLocaleString()}`;
       sel.appendChild(opt);
     }
 
     // Update status with total count
-    setStatus(`${data.total.toLocaleString()} total leads available — select a page and pull`, '#00c8ff');
+    setStatus(`${data.total.toLocaleString()} total leads available â select a page and pull`, '#00c8ff');
   } catch(e) {
     console.log('Could not fetch total count:', e.message);
   }
 }
 
-// Init — build dropdown on page load
+
+function switchTab(el, name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('view-leads').style.display = name === 'leads' ? 'contents' : 'none';
+  document.getElementById('tab-pipeline').style.display = name === 'pipeline' ? 'block' : 'none';
+  if (name === 'pipeline') loadPipeline();
+}
+
+async function addToPipelineAndEmail(lead) {
+  await addToPipeline(lead);
+  // Switch to pipeline tab
+  const pipelineTab = document.querySelectorAll('.tab')[1];
+  switchTab(pipelineTab, 'pipeline');
+  // Open outreach modal after brief delay
+  setTimeout(() => openOutreachModal(lead.permitNum), 600);
+}
+
+// ââ PIPELINE CRM ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+const STAGES = ['new','contacted','interested','proposal','won'];
+const STAGE_LABELS = { new:'New', contacted:'Contacted', interested:'Interested', proposal:'Proposal Sent', won:'Won / Lost' };
+const STAGE_COLORS = { new:'var(--muted)', contacted:'var(--warm)', interested:'var(--accent)', proposal:'#a78bfa', won:'var(--watch)' };
+
+let pipelineLeads = [];
+let currentModalLead = null;
+
+async function loadPipeline() {
+  try {
+    const r = await fetch('/api/pipeline?action=getAll');
+    const data = await r.json();
+    pipelineLeads = data.leads || [];
+    renderPipeline();
+    updatePipelineStats();
+  } catch(e) {
+    console.error('Pipeline load error:', e);
+  }
+}
+
+function renderPipeline() {
+  STAGES.forEach(stage => {
+    const col = document.getElementById(`col-${stage}`);
+    const count = document.getElementById(`pc-${stage}`);
+    const leads = pipelineLeads.filter(l => l.stage === stage);
+    if(count) count.textContent = leads.length;
+    if(!col) return;
+    if(!leads.length) {
+      col.innerHTML = `<div class="pipeline-empty">No leads yet</div>`;
+      return;
+    }
+    col.innerHTML = leads.map(l => {
+      const tier = l.tier || 'watch';
+      const tc = tier==='hot'?'var(--hot)':tier==='warm'?'var(--warm)':'var(--watch)';
+      const val = l.estLow ? `$${Math.round(l.estLow/1000)}K+` : '';
+      return `<div class="pipeline-card" onclick="openLeadModal('${l.permitNum}')">
+        <div class="pipeline-card-name">${l.name||'â'}</div>
+        <div class="pipeline-card-addr">${l.addr||'â'}, ${l.city||''}</div>
+        <div class="pipeline-card-meta">
+          <span class="pipeline-card-tier" style="background:${tc}22;color:${tc};border:1px solid ${tc}44">${tier.toUpperCase()}</span>
+          <span class="pipeline-card-val">${val}</span>
+        </div>
+      </div>`;
+    }).join('');
+  });
+}
+
+function updatePipelineStats() {
+  const stats = pipelineLeads.reduce((acc,l) => { acc[l.stage]=(acc[l.stage]||0)+1; return acc; }, {});
+  document.getElementById('ps-total').textContent = pipelineLeads.length;
+  document.getElementById('ps-contacted').textContent = stats.contacted||0;
+  document.getElementById('ps-interested').textContent = stats.interested||0;
+  document.getElementById('ps-proposal').textContent = stats.proposal||0;
+  document.getElementById('ps-won').textContent = stats.won||0;
+}
+
+async function addToPipeline(lead) {
+  const payload = { ...lead, stage: 'new' };
+  try {
+    const r = await fetch('/api/pipeline?action=save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if(data.success) {
+      // Update local cache
+      const idx = pipelineLeads.findIndex(l => l.permitNum === lead.permitNum);
+      if(idx >= 0) pipelineLeads[idx] = data.lead;
+      else pipelineLeads.unshift(data.lead);
+      setStatus(`${lead.name || lead.addr} added to pipeline`, 'var(--watch)');
+    }
+  } catch(e) {
+    setStatus('Error saving to pipeline', 'var(--hot)');
+  }
+}
+
+async function updateStage(permitNum, stage) {
+  try {
+    const lead = pipelineLeads.find(l => l.permitNum === permitNum);
+    if(!lead) return;
+    const r = await fetch('/api/pipeline?action=save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...lead, stage })
+    });
+    const data = await r.json();
+    if(data.success) {
+      const idx = pipelineLeads.findIndex(l => l.permitNum === permitNum);
+      if(idx >= 0) pipelineLeads[idx] = data.lead;
+      renderPipeline();
+      updatePipelineStats();
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function addNote(permitNum, note) {
+  try {
+    const r = await fetch('/api/pipeline?action=addNote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permitNum, note })
+    });
+    const data = await r.json();
+    if(data.success) {
+      const idx = pipelineLeads.findIndex(l => l.permitNum === permitNum);
+      if(idx >= 0) pipelineLeads[idx] = data.lead;
+      return data.lead;
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function removeFromPipeline(permitNum) {
+  try {
+    await fetch(`/api/pipeline?action=delete&permitNum=${encodeURIComponent(permitNum)}`, { method: 'DELETE' });
+    pipelineLeads = pipelineLeads.filter(l => l.permitNum !== permitNum);
+    renderPipeline();
+    updatePipelineStats();
+    closeModal();
+  } catch(e) { console.error(e); }
+}
+
+// ââ MODAL ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+function openLeadModal(permitNum) {
+  const lead = pipelineLeads.find(l => l.permitNum === permitNum);
+  if(!lead) return;
+  currentModalLead = lead;
+  document.getElementById('modalTitle').textContent = lead.name || lead.addr || 'Lead';
+  const notes = (lead.notes||[]).map(n => `
+    <div class="note-item">
+      <div class="note-time">${new Date(n.ts).toLocaleString()}</div>
+      ${n.text}
+    </div>`).join('');
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div><div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:2px">ADDRESS</div><div style="font-size:12px">${lead.addr}, ${lead.city}</div></div>
+      <div><div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:2px">YEAR BUILT</div><div style="font-size:12px">${lead.yearBuilt||'â'}</div></div>
+      <div><div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:2px">TYPE</div><div style="font-size:12px">${lead.type||'â'}</div></div>
+      <div><div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:2px">EST. CONTRACT</div><div style="font-size:12px">${lead.estLow?'$'+Math.round(lead.estLow/1000)+'K â $'+Math.round(lead.estHigh/1000)+'K':'â'}</div></div>
+    </div>
+    <div class="modal-field">
+      <label>Pipeline stage</label>
+      <select id="modalStage" onchange="updateStage('${permitNum}', this.value)">
+        ${STAGES.map(s=>`<option value="${s}"${lead.stage===s?' selected':''}>${STAGE_LABELS[s]}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Add note</label>
+      <textarea id="modalNote" placeholder="Call notes, next steps, contact info..."></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn primary" onclick="saveNote('${permitNum}')">Save Note</button>
+      <button class="modal-btn" onclick="openOutreachModal('${permitNum}')">Draft Email</button>
+      <button class="modal-btn danger" onclick="removeFromPipeline('${permitNum}')">Remove</button>
+    </div>
+    ${notes ? `<div style="margin-top:16px"><div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:6px;letter-spacing:1.5px;text-transform:uppercase">Notes</div><div class="notes-list">${notes}</div></div>` : ''}
+  `;
+  document.getElementById('leadModal').style.display = 'flex';
+}
+
+async function saveNote(permitNum) {
+  const note = document.getElementById('modalNote')?.value?.trim();
+  if(!note) return;
+  const updated = await addNote(permitNum, note);
+  if(updated) {
+    document.getElementById('modalNote').value = '';
+    openLeadModal(permitNum); // refresh modal
+  }
+}
+
+function closeModal() {
+  document.getElementById('leadModal').style.display = 'none';
+  currentModalLead = null;
+}
+
+// ââ OUTREACH EMAIL â FREE TEMPLATE ENGINE âââââââââââââââââââââââââââââââââââââ
+// No API needed â pulls from live lead data and generates personalized email
+
+const EMAIL_TEMPLATES = [
+  {
+    label: 'Educational â Roof Cycle',
+    subject: (l) => `${l.addr} â Complimentary Roof Assessment`,
+    body: (l, co) => {
+      const age = new Date().getFullYear() - l.yearBuilt;
+      const cycle = l.yearBuilt + 30;
+      const val = l.estLow ? `$${Math.round(l.estLow/1000)}Kâ$${Math.round(l.estHigh/1000)}K` : 'a significant investment';
+      return `Subject: ${l.addr} â Complimentary Roof Assessment
+
+Hi,
+
+I wanted to reach out regarding the property at ${l.addr}, ${l.city}.
+
+Our records indicate the building was constructed in ${l.yearBuilt}, which means the roofing system is now approximately ${age} years old. Commercial roofing systems in Minnesota typically have a 30-year lifecycle â meaning yours ${age >= 30 ? 'has reached or exceeded' : `fjavskdhf|`} that threshold ${age >= 30 ? 'already' : `around ${cycle}`}.
+
+Many property owners are caught off guard when a roof fails unexpectedly. A proactive replacement â planned on your timeline â is almost always less expensive and disruptive than an emergency repair.
+
+We specialize in commercial roofing across the Twin Cities metro and would be glad to offer a complimentary roof assessment for your property at no obligation. The assessment takes about an hour and gives you a clear picture of where things stand.
+
+Would you be open to scheduling a quick call this week?
+
+${co}
+[Phone Number]
+[Email Address]`;
+    }
+  },
+  {
+    label: 'Direct â Cost of Delay',
+    subject: (l) => `Your ${l.yearBuilt} roof at ${l.addr} â before it becomes urgent`,
+    body: (l, co) => {
+      const age = new Date().getFullYear() - l.yearBuilt;
+      const val = l.estLow ? `$${Math.round(l.estLow/1000)}Kâ$${Math.round(l.estHigh/1000)}K` : 'significant';
+      return `Subject: Your ${l.yearBuilt} roof at ${l.addr} â before it becomes urgent
+
+Hi,
+
+Quick note about ${l.addr} in ${l.city}.
+
+Your building is ${age} years old. In our experience with commercial properties across Hennepin County, that's the window where proactive owners start planning their roof â and reactive ones start dealing with leaks.
+
+A planned replacement lets you control the budget, timeline, and contractor selection. An emergency replacement lets none of those things.
+
+We're currently scheduling assessments in your area and have openings this month. The assessment is free, takes about an hour, and gives you an honest report on the roof's current condition and how much runway you realistically have.
+
+No pressure, no obligation. Just useful information.
+
+Worth a conversation?
+
+${co}
+[Phone Number]
+[Email Address]`;
+    }
+  },
+  {
+    label: 'Value-Add â Free Assessment',
+    subject: (l) => `Free commercial roof assessment â ${l.city} properties`,
+    body: (l, co) => {
+      const age = new Date().getFullYear() - l.yearBuilt;
+      return `Subject: Free commercial roof assessment â ${l.city} properties
+
+Hi,
+
+We're offering complimentary roof assessments for commercial property owners in ${l.city} this month as part of our proactive outreach program.
+
+Your property at ${l.addr} caught our attention â at ${age} years old, it's in the range where a professional evaluation can help you plan ahead and avoid surprises.
+
+What you get from a free assessment:
+â Current condition report with photos
+â Estimated remaining lifespan
+â Projected replacement cost range
+â No-obligation recommendations
+
+We work exclusively with commercial and industrial properties and carry full general liability and workers' comp insurance.
+
+If you'd like to schedule a time, just reply to this email or call us directly.
+
+${co}
+[Phone Number]
+[Email Address]`;
+    }
+  }
+];
+
+function openOutreachModal(permitNum) {
+  const lead = pipelineLeads.find(l => l.permitNum === permitNum)
+    || allLeads.find(l => String(l.permitNum) === String(permitNum));
+  if(!lead) return;
+
+  const co = document.getElementById('companyName')?.value || 'Summit Commercial Roofing';
+
+  document.getElementById('modalTitle').textContent = 'Outreach Email';
+  renderEmailModal(lead, co, 0);
+  document.getElementById('leadModal').style.display = 'flex';
+}
+
+function renderEmailModal(lead, co, templateIdx) {
+  const tmpl = EMAIL_TEMPLATES[templateIdx];
+  const emailBody = tmpl.body(lead, co);
+  const templateBtns = EMAIL_TEMPLATES.map((t, i) =>
+    `<button class="modal-btn${i===templateIdx?' primary':''}" style="font-size:9px" onclick="renderEmailModal(currentModalLead, '${co}', ${i})">${t.label}</button>`
+  ).join('');
+
+  // Build mailto link
+  const subject = encodeURIComponent(tmpl.subject(lead));
+  const body = encodeURIComponent(emailBody.replace(/^Subject:.*
+
+/, ''));
+  const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+      Personalized for <strong style="color:var(--text)">${lead.name}</strong> â ${lead.addr}, ${lead.city}
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      ${templateBtns}
+    </div>
+    <div class="email-output" id="emailOutput" contenteditable="true" style="font-size:11px;line-height:1.7">${emailBody}</div>
+    <div class="modal-btns" style="flex-wrap:wrap">
+      <button class="modal-btn primary" onclick="copyEmail()">Copy to Clipboard</button>
+      <a href="${mailtoLink}" class="modal-btn" style="text-decoration:none;display:flex;align-items:center" target="_blank">Open in Email</a>
+      <button class="modal-btn" onclick="openLeadModal('${lead.permitNum}')">Back to Lead</button>
+    </div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:10px">
+      Edit directly in the box above before copying. "Open in Email" opens your default mail app with subject + body pre-filled.
+    </div>`;
+
+  currentModalLead = lead;
+}
+
+function copyEmail() {
+  const text = document.getElementById('emailOutput')?.innerText || '';
+  navigator.clipboard.writeText(text).then(() => setStatus('Email copied to clipboard', 'var(--watch)'));
+}
+
+function exportPipelineCSV() {
+  if(!pipelineLeads.length) { alert('No pipeline leads to export.'); return; }
+  const h = ['Name','Address','City','Type','Year Built','Stage','Est Low','Est High','Notes','Added'];
+  const rows = pipelineLeads.map(l => [
+    l.name, l.addr, l.city, l.type, l.yearBuilt||'',
+    STAGE_LABELS[l.stage]||l.stage,
+    l.estLow||'', l.estHigh||'',
+    (l.notes||[]).map(n=>n.text).join(' | '),
+    l.addedAt ? new Date(l.addedAt).toLocaleDateString() : ''
+  ].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','));
+  const csv = [h.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'SilentRoof_Pipeline_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// ââ PERMIT VERIFICATION ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Cache keyed by lead.id â persists for this session so we don't re-check
+const permitCache = {};
+
+function renderPermitSection(l) {
+  const pv = permitCache[l.id];
+  if (!pv) {
+    return `<button class="action-btn" style="margin:0" onclick="verifyLead(${l.id})">Check Roof Permits</button>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:5px">Searches ${l.city||'city'} permit records for any roofing work in the last 20 years.</div>`;
+  }
+  if (pv.checking) {
+    return `<span class="permit-badge checking">&#9679; Checking permits...</span>`;
+  }
+
+  const badgeClass = pv.status === 'CLEAR' ? 'clear' : pv.status === 'FLAGGED' ? 'flagged' : 'unknown';
+  const badgeIcon = pv.status === 'CLEAR' ? 'â' : pv.status === 'FLAGGED' ? 'â ' : '?';
+  const badgeLabel = pv.status === 'CLEAR' ? 'Clear â No roof permits found'
+    : pv.status === 'FLAGGED' ? `Flagged â ${pv.permitCount} permit(s) found`
+    : 'Unknown â Manual check needed';
+
+  let permitsHtml = '';
+  if (pv.permits && pv.permits.length) {
+    permitsHtml = `<div class="permit-result-card">${pv.permits.map(p=>`
+      <div class="permit-result-row">
+        <strong>${p.permitNumber}</strong> Â· ${p.issueDate}<br>
+        ${p.description}<br>
+        <span style="color:var(--muted2);font-size:9px">${p.source}</span>
+      </div>`).join('')}</div>`;
+  }
+
+  const msg = pv.status === 'CLEAR'
+    ? 'No roofing permits found in last 20 years. Lead is confirmed HOT.'
+    : pv.status === 'FLAGGED'
+    ? 'Roof permit(s) found. Verify scope â if they replaced the full roof, remove from outreach.'
+    : pv.message || 'Permit data not available for this city.';
+
+  return `
+    <span class="permit-badge ${badgeClass}">${badgeIcon} ${badgeLabel}</span>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;margin-top:6px">${msg}</div>
+    ${permitsHtml}
+    <button class="action-btn" style="margin-top:8px;font-size:9px" onclick="verifyLead(${l.id})">Re-check</button>`;
+}
+
+async function verifyLead(leadId) {
+  const l = allLeads.find(x => x.id === leadId);
+  if (!l) return;
+
+  // Mark as checking
+  permitCache[leadId] = { checking: true };
+  const sec = document.getElementById(`permitVerifySection-${leadId}`);
+  if (sec) sec.innerHTML = `<div class="detail-section-title">Roof permit verification</div>` + renderPermitSection(l);
+
+  try {
+    const addr = encodeURIComponent(l.addr);
+    const city = encodeURIComponent(l.city);
+    const zip  = encodeURIComponent(l.zip || '');
+    const resp = await fetch(`/api/permit-check?address=${addr}&city=${city}&zip=${zip}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    permitCache[leadId] = { ...data, checking: false };
+  } catch(e) {
+    permitCache[leadId] = {
+      status: 'UNKNOWN', permits: [], permitCount: 0, checking: false,
+      message: `Lookup failed: ${e.message}`
+    };
+  }
+
+  // Re-render section if still selected
+  const sec2 = document.getElementById(`permitVerifySection-${leadId}`);
+  if (sec2) sec2.innerHTML = `<div class="detail-section-title">Roof permit verification</div>` + renderPermitSection(l);
+
+  // Also refresh the row dot
+  renderList();
+}
+
+async function verifyAllLeads() {
+  const btn = document.getElementById('verifyBtn');
+  const leads = getVisibleLeads();
+  if (!leads.length) { alert('Pull live data first, then verify.'); return; }
+
+  btn.disabled = true;
+  const prog = document.getElementById('scanProgress');
+  const fill = document.getElementById('progressFill');
+  const msg  = document.getElementById('scanMsg');
+  prog.classList.add('visible');
+
+  for (let i = 0; i < leads.length; i++) {
+    const l = leads[i];
+    fill.style.width = Math.round(((i+1)/leads.length)*100) + '%';
+    msg.textContent = `Verifying ${i+1}/${leads.length}: ${l.addr}`;
+
+    // Skip if already checked
+    if (permitCache[l.id] && !permitCache[l.id].checking) continue;
+
+    permitCache[l.id] = { checking: true };
+    try {
+      const resp = await fetch(`/api/permit-check?address=${encodeURIComponent(l.addr)}&city=${encodeURIComponent(l.city)}&zip=${encodeURIComponent(l.zip||'')}`);
+      const data = await resp.json();
+      permitCache[l.id] = { ...data, checking: false };
+    } catch(e) {
+      permitCache[l.id] = { status: 'UNKNOWN', permits: [], permitCount: 0, checking: false, message: e.message };
+    }
+
+    // Small delay to avoid hammering the permit APIs
+    await sleep(400);
+  }
+
+  prog.classList.remove('visible');
+  btn.disabled = false;
+  renderList();
+
+  // Summary
+  const results = leads.map(l => permitCache[l.id]).filter(Boolean);
+  const cleared  = results.filter(r => r.status === 'CLEAR').length;
+  const flagged  = results.filter(r => r.status === 'FLAGGED').length;
+  const unknown  = results.filter(r => r.status === 'UNKNOWN').length;
+  setStatus(`Verified ${leads.length} leads â ${cleared} clear Â· ${flagged} flagged Â· ${unknown} unknown`, 'var(--accent)');
+}
+
+function setStatus(msg, color) {
+  const lbl = document.getElementById('statusLabel');
+  if (lbl) { lbl.textContent = msg; lbl.style.color = color || ''; }
+}
+
+// Init â build dropdown on page load
 buildPageDropdown();
+// Load pipeline on tab switch
 </script>
+
+  </div><!-- end view-leads -->
+
+<!-- PIPELINE TAB -->
+<div id="tab-pipeline" style="display:none" class="pipeline-wrap">
+  <div class="pipeline-header">
+    <div class="pipeline-title">Pipeline <span style="color:var(--accent)">CRM</span></div>
+    <div style="display:flex;gap:8px">
+      <button class="topbar-btn" onclick="exportPipelineCSV()">Export CSV</button>
+      <button class="topbar-btn primary" onclick="loadPipeline()">â³ Refresh</button>
+    </div>
+  </div>
+  <div class="pipeline-stats">
+    <div class="pipeline-stat"><div class="pipeline-stat-num" id="ps-total" style="color:var(--accent)">0</div><div class="pipeline-stat-label">Total in pipeline</div></div>
+    <div class="pipeline-stat"><div class="pipeline-stat-num" id="ps-contacted" style="color:var(--warm)">0</div><div class="pipeline-stat-label">Contacted</div></div>
+    <div class="pipeline-stat"><div class="pipeline-stat-num" id="ps-interested" style="color:var(--accent)">0</div><div class="pipeline-stat-label">Interested</div></div>
+    <div class="pipeline-stat"><div class="pipeline-stat-num" id="ps-proposal" style="color:#a78bfa">0</div><div class="pipeline-stat-label">Proposal sent</div></div>
+    <div class="pipeline-stat"><div class="pipeline-stat-num" id="ps-won" style="color:var(--watch)">0</div><div class="pipeline-stat-label">Won</div></div>
+  </div>
+  <div class="pipeline-board" id="pipelineBoard">
+    <div class="pipeline-col"><div class="pipeline-col-header"><span class="pipeline-col-title" style="color:var(--muted)">New</span><span class="pipeline-col-count" id="pc-new">0</span></div><div class="pipeline-cards" id="col-new"></div></div>
+    <div class="pipeline-col"><div class="pipeline-col-header"><span class="pipeline-col-title" style="color:var(--warm)">Contacted</span><span class="pipeline-col-count" id="pc-contacted">0</span></div><div class="pipeline-cards" id="col-contacted"></div></div>
+    <div class="pipeline-col"><div class="pipeline-col-header"><span class="pipeline-col-title" style="color:var(--accent)">Interested</span><span class="pipeline-col-count" id="pc-interested">0</span></div><div class="pipeline-cards" id="col-interested"></div></div>
+    <div class="pipeline-col"><div class="pipeline-col-header"><span class="pipeline-col-title" style="color:#a78bfa">Proposal Sent</span><span class="pipeline-col-count" id="pc-proposal">0</span></div><div class="pipeline-cards" id="col-proposal"></div></div>
+    <div class="pipeline-col"><div class="pipeline-col-header"><span class="pipeline-col-title" style="color:var(--watch)">Won / Lost</span><span class="pipeline-col-count" id="pc-won">0</span></div><div class="pipeline-cards" id="col-won"></div></div>
+  </div>
+</div>
+
+<!-- LEAD MODAL -->
+<div class="modal-overlay" id="leadModal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">Ã</button>
+    <div class="modal-title" id="modalTitle">Lead Details</div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
 </body>
 </html>
