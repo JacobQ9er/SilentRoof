@@ -18,15 +18,10 @@ const LOOKBACK_YEARS = 20;
 
 function routeCity(city) {
   const c = (city || '').toUpperCase().trim();
-  if (c === 'MINNEAPOLIS')    return checkMinneapolis;
-  if (c === 'ST. LOUIS PARK') return checkHennepinCounty;
-  if (c === 'BLOOMINGTON')    return checkBloomington;
-  if (c === 'EDEN PRAIRIE')   return checkEdenPrairie;
-  if (c === 'MINNETONKA')     return checkHennepinCounty;
-  if (c === 'WAYZATA')        return checkHennepinCounty;
-  if (c === 'CRYSTAL')        return checkHennepinCounty;
-  if (c === 'CHANHASSEN')     return checkHennepinCounty;
-  if (c === 'EDINA')          return checkEdina;
+  if (c === 'MINNEAPOLIS') return checkMinneapolis;
+  if (c === 'BLOOMINGTON') return checkBloomington;
+  // Hennepin County GIS does not expose a public permits service.
+  // Suburban cities return UNKNOWN until individual city APIs are wired up.
   return null;
 }
 
@@ -60,26 +55,6 @@ async function checkMinneapolis(address) {
   }));
 }
 
-async function checkHennepinCounty(address, city) {
-  const cutoff = `${cutoffYear()}-01-01`;
-  const where = encodeURIComponent(`UPPER(SITE_ADDR) LIKE UPPER('%${address.split(' ').slice(0,2).join(' ')}%') AND ISSUE_DATE >= DATE '${cutoff}'`);
-  const fields = 'PERMIT_NO,PERMIT_TYPE,DESCRIPTION,ISSUE_DATE,SITE_ADDR,STATUS';
-  const url = `https://gis.hennepin.us/arcgis/rest/services/HennepinData/PERMITS/MapServer/0/query?where=${where}&outFields=${fields}&resultRecordCount=50&f=json`;
-  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!resp.ok) throw new Error(`Hennepin GIS: HTTP ${resp.status}`);
-  const data = await resp.json();
-  if (data.error) throw new Error(`Hennepin GIS error: ${data.error.message}`);
-  const roofPermits = (data.features || []).map(f => f.attributes).filter(r =>
-    isRoofPermit(r.DESCRIPTION) || isRoofPermit(r.PERMIT_TYPE)
-  );
-  return roofPermits.map(r => ({
-    permitNumber: r.PERMIT_NO || '—',
-    description: r.DESCRIPTION || r.PERMIT_TYPE || '—',
-    issueDate: r.ISSUE_DATE ? new Date(r.ISSUE_DATE).toISOString().split('T')[0] : '—',
-    source: `Hennepin County GIS (${city})`
-  }));
-}
-
 async function checkBloomington(address) {
   const cutoff = cutoffYear();
   const streetNum = address.split(' ')[0];
@@ -98,9 +73,6 @@ async function checkBloomington(address) {
     source: 'City of Bloomington'
   }));
 }
-
-async function checkEdenPrairie(address) { return checkHennepinCounty(address, 'Eden Prairie'); }
-async function checkEdina(address) { return checkHennepinCounty(address, 'Edina'); }
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
