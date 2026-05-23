@@ -81,7 +81,7 @@ const LOGIS_CITIES = {
 function getLogisUrl(city) {
   const code = LOGIS_CITIES[(city || '').toUpperCase().trim()];
   if (!code) return null;
-  return `https://epermits.logis.org/Permits/BuildingPermits.aspx?city=${code}`;
+  return `https://epermits.logis.org/search.aspx?city=${code}`;
 }
 
 // ─── CLI args ─────────────────────────────────────────────────────────────────
