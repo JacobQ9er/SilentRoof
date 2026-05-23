@@ -46,13 +46,7 @@ const OUTPUT_FILE = path.join(__dirname, 'permit-results.json');
 
 // Hennepin County GIS — same query the dashboard uses
 const GIS_URL    = 'https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query';
-const GIS_PARAMS = new URLSearchParams({
-  where: "BUILD_YR >= '1985' AND BUILD_YR <= '2000' AND BLDG_MV1 > 100000 AND PR_TYP_CD1 <> 'R'",
-  outFields: 'OWNER_NM,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,BUILD_YR,PR_TYP_CD1,BLDG_MV1,PID',
-  f: 'json',
-  resultRecordCount: 2000,
-  resultOffset: 0,
-}).toString();
+const GIS_PARAMS = "where=BUILD_YR+%3E%3D+'1985'+AND+BUILD_YR+%3C%3D+'2000'+AND+BLDG_MV1+%3E+100000+AND+PR_TYP_CD1+%3C%3E+'R'&outFields=OWNER_NM%2CSITUS_ADDR%2CSITUS_CITY%2CSITUS_ZIP%2CBUILD_YR%2CPR_TYP_CD1%2CBLDG_MV1%2CPID&f=json&resultRecordCount=2000&resultOffset=0";
 
 // ─── LOGIS city routing ───────────────────────────────────────────────────────
 
