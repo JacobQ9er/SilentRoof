@@ -139,8 +139,19 @@ function httpGet(url) {
 
 async function fetchLeads() {
   log('Fetching leads from Hennepin County GIS...');
-  const data = JSON.parse(await httpGet(`${GIS_URL}?${GIS_PARAMS}`));
-  if (!data.features) throw new Error('No features in GIS response');
+  const raw = await httpGet(`${GIS_URL}?${GIS_PARAMS}`);
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch(e) {
+    throw new Error(`GIS response was not valid JSON. Got: ${raw.slice(0, 200)}`);
+  }
+  if (data.error) {
+    throw new Error(`GIS API error: ${JSON.stringify(data.error)}`);
+  }
+  if (!data.features) {
+    throw new Error(`No features in GIS response. Keys returned: ${Object.keys(data).join(', ')}. Response: ${raw.slice(0, 300)}`);
+  }
   const leads = data.features.map(f => {
     const a = f.attributes;
     return {
@@ -394,15 +405,42 @@ async function main() {
     log(`Probe: ${probeCity} → ${url}`);
     await page.goto(url, { waitUntil: 'networkidle2', timeout: PAGE_TIMEOUT_MS });
 
-    const fields = await page.evaluate(() => {
+    // Check main frame first
+    let fields = await page.evaluate(() => {
       return Array.from(document.querySelectorAll('input, select, textarea'))
         .filter(el => el.type !== 'hidden')
-        .map(el => ({ tag: el.tagName, type: el.type || el.tagName, name: el.name, id: el.id }));
+        .map(el => ({ tag: el.tagName, type: el.type || el.tagName, name: el.name, id: el.id, frame: 'main' }));
     });
 
-    log(`\nAll visible form fields on "${probeCity}" LOGIS page:`);
+    // Also check iframes — LOGIS sometimes embeds the form in an iframe
+    const iframes = page.frames();
+    for (const frame of iframes) {
+      if (frame === page.mainFrame()) continue;
+      try {
+        const iframeFields = await frame.evaluate(() => {
+          return Array.from(document.querySelectorAll('input, select, textarea'))
+            .filter(el => el.type !== 'hidden')
+            .map(el => ({ tag: el.tagName, type: el.type || el.tagName, name: el.name, id: el.id, frame: 'iframe:' + (document.location.href || '?') }));
+        });
+        fields = fields.concat(iframeFields);
+      } catch(e) { /* cross-origin iframe, skip */ }
+    }
+
+    // Also dump page title and URL to confirm we landed on the right page
+    const pageTitle = await page.title();
+    const pageUrl   = page.url();
+    log(`Page title: "${pageTitle}"`);
+    log(`Final URL:  ${pageUrl}`);
+    log(`\nAll visible form fields (main frame + iframes):`);
+    if (fields.length === 0) {
+      log('  (none found — page may require login or uses a different structure)');
+      // Dump raw HTML snippet for diagnosis
+      const snippet = await page.evaluate(() => document.body.innerHTML.slice(0, 2000));
+      log('\nPage HTML snippet (first 2000 chars):');
+      console.log(snippet);
+    }
     for (const f of fields) {
-      log(`  ${f.tag.padEnd(7)} type=${String(f.type).padEnd(10)} name="${f.name}"   id="${f.id}"`);
+      log(`  [${f.frame}] ${f.tag.padEnd(7)} type=${String(f.type).padEnd(10)} name="${f.name}"   id="${f.id}"`);
     }
 
     if (headedMode) {
