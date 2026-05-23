@@ -1,70 +1,60 @@
 #!/usr/bin/env node
 /**
- * SilentRoof — LOGIS ePermits Scraper
+ * SilentRoof — LOGIS ePermits Scraper (Puppeteer / headless Chrome)
  *
- * Reads leads from the Hennepin County GIS API (same source as the dashboard),
- * routes each lead to the correct LOGIS city portal, submits an address search,
+ * Reads leads from the Hennepin County GIS API, routes each lead to the
+ * correct LOGIS city portal, fills the permit search form in a real browser,
  * detects reroof/roof replacement permits, and writes permit-results.json.
  *
- * LOGIS participating cities covered:
- *   Apple Valley, Crystal, Eden Prairie, Edina, Farmington, Golden Valley,
- *   Le Sueur, Maple Grove, Minnetonka, Ramsey, Savage, South St. Paul,
- *   St. Louis Park, Waconia, White Bear Lake
+ * SETUP (one time):
+ *   npm install puppeteer
  *
- * Run:
- *   node scripts/verify-permits.js                        # all leads
- *   node scripts/verify-permits.js --city "EDEN PRAIRIE"  # one city
- *   node scripts/verify-permits.js --limit 10             # first N leads
- *   node scripts/verify-permits.js --resume               # skip already-checked
+ * RUN:
+ *   node scripts/verify-permits.js                         # all LOGIS-covered leads
+ *   node scripts/verify-permits.js --city "EDEN PRAIRIE"   # one city only
+ *   node scripts/verify-permits.js --limit 10              # first N leads (good for testing)
+ *   node scripts/verify-permits.js --resume                # skip already-checked addresses
+ *   node scripts/verify-permits.js --probe "ST. LOUIS PARK" # debug one address interactively
+ *   node scripts/verify-permits.js --headed                # show the browser window (debug)
  *
- * Output: scripts/permit-results.json
+ * OUTPUT:
+ *   scripts/permit-results.json  (written after every address, crash-safe)
  *
- * No npm packages required — uses Node.js built-ins only.
+ * Then click "Load Permit Results" in the SilentRoof dashboard and pick that file.
  */
 
 'use strict';
 
-const https = require('https');
+const fs   = require('fs');
+const path = require('path');
 const http  = require('http');
-const fs    = require('fs');
-const path  = require('path');
+const https = require('https');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const REROOF_LOOKBACK_YEARS = 10;
 
-// Keywords in Description or Sub Type that indicate a roof replacement
 const REROOF_KEYWORDS = [
   'reroof', 're-roof', 'roof replacement', 'tear off', 'tearoff',
   'new roof', 'roof recover', 'roofing',
 ];
 
-const REQUEST_DELAY_MS = 2000; // be polite — 2s between requests
+const REQUEST_DELAY_MS = 1500; // pause between addresses (ms)
+const PAGE_TIMEOUT_MS  = 20000;
 
 const OUTPUT_FILE = path.join(__dirname, 'permit-results.json');
 
 // Hennepin County GIS — same query the dashboard uses
-const GIS_URL = 'https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query';
-const GIS_PARAMS = {
+const GIS_URL    = 'https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query';
+const GIS_PARAMS = new URLSearchParams({
   where: "BUILD_YR >= '1985' AND BUILD_YR <= '2000' AND BLDG_MV1 > 100000 AND PR_TYP_CD1 <> 'R'",
   outFields: 'OWNER_NM,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,BUILD_YR,PR_TYP_CD1,BLDG_MV1,PID',
   f: 'json',
   resultRecordCount: 2000,
   resultOffset: 0,
-};
+}).toString();
 
 // ─── LOGIS city routing ───────────────────────────────────────────────────────
-//
-// Each LOGIS city gets a unique URL path. The pattern is:
-//   https://epermits.logis.org/ePermits/{CityPath}/Permits/BuildingPermits.aspx
-//
-// City paths were identified from the LOGIS home page city list.
-// To find the exact path for a city: visit epermits.logis.org, click the city link,
-// and note the URL. They typically match the city name with no spaces.
-//
-// If a city path below is wrong, run:
-//   node scripts/verify-permits.js --probe "EDEN PRAIRIE"
-// and it will print the redirect URL so you can correct it.
 
 const LOGIS_CITIES = {
   'APPLE VALLEY':   'AppleValley',
@@ -87,19 +77,19 @@ const LOGIS_CITIES = {
 };
 
 function getLogisUrl(city) {
-  const key = (city || '').toUpperCase().trim();
-  const cityPath = LOGIS_CITIES[key];
+  const cityPath = LOGIS_CITIES[(city || '').toUpperCase().trim()];
   if (!cityPath) return null;
   return `https://epermits.logis.org/ePermits/${cityPath}/Permits/BuildingPermits.aspx`;
 }
 
 // ─── CLI args ─────────────────────────────────────────────────────────────────
 
-const args = process.argv.slice(2);
-const filterCity  = args.includes('--city')  ? args[args.indexOf('--city')  + 1] : null;
-const limitCount  = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1]) : null;
-const resumeMode  = args.includes('--resume');
-const probeCity   = args.includes('--probe') ? args[args.indexOf('--probe') + 1] : null;
+const args       = process.argv.slice(2);
+const filterCity = args.includes('--city')  ? args[args.indexOf('--city')  + 1] : null;
+const limitCount = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1]) : null;
+const resumeMode = args.includes('--resume');
+const headedMode = args.includes('--headed');
+const probeCity  = args.includes('--probe') ? args[args.indexOf('--probe') + 1] : null;
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -110,7 +100,6 @@ function log(msg) {
 }
 
 function parseAddress(fullAddr) {
-  // "2170 RIDGE DR" → { houseNum: "2170", streetName: "RIDGE DR" }
   const m = fullAddr.trim().match(/^(\d+[A-Za-z]?)\s+(.+)$/);
   if (!m) return { houseNum: '', streetName: fullAddr.trim() };
   return { houseNum: m[1], streetName: m[2].trim() };
@@ -131,329 +120,28 @@ function isWithinLookback(dateStr) {
   return d >= cutoff;
 }
 
-function decodeHtmlEntities(str) {
-  return str
-    .replace(/&amp;/g, '&')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .trim();
-}
+// ─── Simple HTTP GET (no deps, for GIS API only) ──────────────────────────────
 
-// ─── HTTP helpers (no dependencies) ──────────────────────────────────────────
-
-function request(method, url, options = {}) {
+function httpGet(url) {
   return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const lib = parsed.protocol === 'https:' ? https : http;
-
-    const bodyStr = options.body || '';
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Connection': 'keep-alive',
-      ...(options.headers || {}),
-    };
-
-    if (method === 'POST') {
-      headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      headers['Content-Length'] = Buffer.byteLength(bodyStr).toString();
-    }
-
-    const reqOptions = {
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + (parsed.search || ''),
-      method,
-      headers,
-    };
-
-    const req = lib.request(reqOptions, (res) => {
-      // Follow redirects (up to 5)
-      const redirectCount = (options._redirectCount || 0);
-      if ((res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 303) && res.headers.location && redirectCount < 5) {
-        const loc = res.headers.location;
-        const redirectUrl = loc.startsWith('http') ? loc : `${parsed.protocol}//${parsed.hostname}${loc.startsWith('/') ? '' : '/'}${loc}`;
-        // After redirect, GET only
-        return request('GET', redirectUrl, {
-          ...options,
-          body: undefined,
-          _redirectCount: redirectCount + 1,
-        }).then(resolve).catch(reject);
-      }
-
+    const lib = url.startsWith('https') ? https : http;
+    const req = lib.get(url, { timeout: 15000 }, res => {
       let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve({
-        status: res.statusCode,
-        headers: res.headers,
-        body: data,
-      }));
+      res.on('data', c => data += c);
+      res.on('end', () => resolve(data));
     });
-
     req.on('error', reject);
-    req.setTimeout(20000, () => { req.destroy(); reject(new Error('Request timeout')); });
-
-    if (method === 'POST' && bodyStr) req.write(bodyStr);
-    req.end();
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
   });
-}
-
-function get(url, headers = {}) {
-  return request('GET', url, { headers });
-}
-
-function post(url, formFields, headers = {}) {
-  const body = Object.entries(formFields)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v || '')}`)
-    .join('&');
-  return request('POST', url, { body, headers });
-}
-
-// ─── ASP.NET hidden fields extractor ─────────────────────────────────────────
-
-function extractHiddenFields(html) {
-  const fields = {};
-  // Match all hidden inputs
-  const re = /<input[^>]+type=["']hidden["'][^>]*>/gi;
-  const nameRe = /name=["']([^"']+)["']/i;
-  const valueRe = /value=["']([^"']*)["']/i;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const tag = m[0];
-    const nameM = nameRe.exec(tag);
-    const valueM = valueRe.exec(tag);
-    if (nameM) fields[nameM[1]] = valueM ? valueM[1] : '';
-  }
-  return fields;
-}
-
-// ─── HTML table parser ────────────────────────────────────────────────────────
-
-function parsePermitTable(html) {
-  const permits = [];
-
-  // Find the grid/results table — look for rows with permit numbers
-  // Permit numbers on LOGIS look like SL######, BL######, etc.
-  const tableRe = /<table[^>]*>([\s\S]*?)<\/table>/gi;
-  const rowRe   = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  const cellRe  = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-  const stripRe = /<[^>]+>/g;
-
-  let tableMatch;
-  while ((tableMatch = tableRe.exec(html)) !== null) {
-    const tableHtml = tableMatch[1];
-
-    // Does this table look like a permit results table?
-    if (!/<td/i.test(tableHtml)) continue;
-
-    // Extract rows
-    const rows = [];
-    let rowMatch;
-    while ((rowMatch = rowRe.exec(tableHtml)) !== null) {
-      const rowHtml = rowMatch[1];
-      if (/<th/i.test(rowHtml)) continue; // skip header rows
-
-      const cells = [];
-      let cellMatch;
-      while ((cellMatch = cellRe.exec(rowHtml)) !== null) {
-        const raw = cellMatch[1].replace(stripRe, '').trim();
-        cells.push(decodeHtmlEntities(raw));
-      }
-      if (cells.length >= 5) rows.push(cells);
-    }
-
-    for (const cells of rows) {
-      // Column order from LOGIS screenshot:
-      // 0: Permit#  1: Permit Type  2: Sub Type  3: Work Type  4: Description
-      // 5: Address  6: Contractor   7: Issued Date  8: Applied Date
-      // 9: Final Date  10: Expiration Date  11: Cancelled Date  12: ePermit
-      const permitNum = cells[0];
-      if (!permitNum || !/^[A-Z]{1,4}\d{4,}/.test(permitNum)) continue;
-
-      permits.push({
-        permitNum:   cells[0] || '',
-        permitType:  cells[1] || '',
-        subType:     cells[2] || '',
-        workType:    cells[3] || '',
-        description: cells[4] || '',
-        address:     cells[5] || '',
-        contractor:  cells[6] || '',
-        issuedDate:  cells[7] || '',
-        appliedDate: cells[8] || '',
-      });
-    }
-
-    if (permits.length > 0) break; // found the results table
-  }
-
-  return permits;
-}
-
-// ─── Extract cookies from response headers ────────────────────────────────────
-
-function extractCookies(headers) {
-  const raw = headers['set-cookie'] || [];
-  const jar = {};
-  for (const c of Array.isArray(raw) ? raw : [raw]) {
-    const [pair] = c.split(';');
-    const [name, ...rest] = pair.split('=');
-    jar[name.trim()] = rest.join('=').trim();
-  }
-  return jar;
-}
-
-function cookieHeader(jar) {
-  return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
-}
-
-// ─── Query LOGIS for one address ──────────────────────────────────────────────
-
-async function queryLogisAddress(address, city, zip) {
-  const searchUrl = getLogisUrl(city);
-  if (!searchUrl) {
-    return { status: 'SKIP', reason: `City not on LOGIS: ${city}`, permits: [] };
-  }
-
-  const { houseNum, streetName } = parseAddress(address);
-
-  try {
-    // Step 1: GET page → grab ViewState + ASP.NET session cookie
-    const getResp = await get(searchUrl);
-
-    if (getResp.status === 404) {
-      return { status: 'ERROR', error: `LOGIS page not found for ${city} — check city path in LOGIS_CITIES map`, permits: [] };
-    }
-    if (getResp.status !== 200) {
-      return { status: 'ERROR', error: `HTTP ${getResp.status} on GET`, permits: [] };
-    }
-
-    const cookieJar = extractCookies(getResp.headers);
-    const hiddenFields = extractHiddenFields(getResp.body);
-
-    // Step 2: Find the correct form field names
-    // LOGIS uses ASP.NET WebForms — field IDs vary slightly by city instance.
-    // We look for input fields whose ID contains keywords.
-    const houseNumField = findFieldName(getResp.body, ['HouseNum', 'housenum', 'HouseNumber']);
-    const streetField   = findFieldName(getResp.body, ['StreetName', 'streetname', 'Street']);
-    const permitTypeField = findFieldName(getResp.body, ['PermitType', 'permittype', 'ddlPermit']);
-    const searchBtnField  = findFieldName(getResp.body, ['btnSearch', 'Search', 'search']);
-
-    if (!houseNumField || !streetField) {
-      return { status: 'ERROR', error: `Could not find form fields on LOGIS page for ${city}. Page may have changed.`, permits: [] };
-    }
-
-    // Step 3: POST search
-    const formData = {
-      ...hiddenFields,
-      [houseNumField]: houseNum,
-      [streetField]: streetName,
-      '__EVENTTARGET': '',
-      '__EVENTARGUMENT': '',
-    };
-
-    // Add permit type if found
-    if (permitTypeField) formData[permitTypeField] = 'Building';
-    // Add search button
-    if (searchBtnField) formData[searchBtnField] = 'Search';
-
-    const postResp = await post(searchUrl, formData, {
-      'Cookie': cookieHeader(cookieJar),
-      'Referer': searchUrl,
-    });
-
-    if (postResp.status !== 200) {
-      return { status: 'ERROR', error: `HTTP ${postResp.status} on POST`, permits: [] };
-    }
-
-    // Step 4: Check for "no records" message
-    const bodyLower = postResp.body.toLowerCase();
-    if (bodyLower.includes('no records found') || bodyLower.includes('0 record') || bodyLower.includes('no permits found')) {
-      return { status: 'CLEAR', permits: [] };
-    }
-
-    // Step 5: Parse permit table
-    const permits = parsePermitTable(postResp.body);
-
-    if (permits.length === 0) {
-      // Could be "no results" or a parse failure — save HTML snippet for debug
-      const snippet = postResp.body.slice(0, 500);
-      return { status: 'UNKNOWN', error: 'No permits parsed — possible form field mismatch or truly no permits', debugSnippet: snippet, permits: [] };
-    }
-
-    // Step 6: Evaluate for disqualifying reroof permits
-    const reroofPermits = permits.filter(p =>
-      isReroofPermit(p.description) || isReroofPermit(p.subType) || isReroofPermit(p.workType)
-    );
-
-    const recentReroof = reroofPermits.filter(p =>
-      isWithinLookback(p.issuedDate) || isWithinLookback(p.appliedDate)
-    );
-
-    if (recentReroof.length > 0) {
-      const p = recentReroof[0];
-      return {
-        status: 'FLAGGED',
-        reason: `${p.subType || p.description} — issued ${p.issuedDate || p.appliedDate}`,
-        permits,
-        reroofPermits: recentReroof,
-      };
-    }
-
-    if (reroofPermits.length > 0) {
-      const p = reroofPermits[0];
-      return {
-        status: 'CLEAR',
-        note: `Old reroof outside ${REROOF_LOOKBACK_YEARS}yr window: ${p.description} (${p.issuedDate})`,
-        permits,
-      };
-    }
-
-    return { status: 'CLEAR', permits };
-
-  } catch (err) {
-    return { status: 'ERROR', error: err.message, permits: [] };
-  }
-}
-
-// Find a form field name by looking for input whose name contains one of the keywords
-function findFieldName(html, keywords) {
-  const inputRe = /<input[^>]+>/gi;
-  const nameRe  = /name=["']([^"']+)["']/i;
-  const idRe    = /id=["']([^"']+)["']/i;
-  let m;
-  while ((m = inputRe.exec(html)) !== null) {
-    const tag = m[0];
-    const nameM = nameRe.exec(tag);
-    const idM   = idRe.exec(tag);
-    const nameVal = nameM ? nameM[1] : '';
-    const idVal   = idM   ? idM[1]   : '';
-    for (const kw of keywords) {
-      if (nameVal.toLowerCase().includes(kw.toLowerCase()) || idVal.toLowerCase().includes(kw.toLowerCase())) {
-        return nameVal; // return the name attribute (used in form POST)
-      }
-    }
-  }
-  return null;
 }
 
 // ─── Fetch leads from Hennepin County GIS ────────────────────────────────────
 
 async function fetchLeads() {
   log('Fetching leads from Hennepin County GIS...');
-  const params = new URLSearchParams(GIS_PARAMS);
-  const url = `${GIS_URL}?${params.toString()}`;
-
-  const resp = await get(url);
-  if (resp.status !== 200) throw new Error(`GIS API returned HTTP ${resp.status}`);
-
-  const data = JSON.parse(resp.body);
+  const data = JSON.parse(await httpGet(`${GIS_URL}?${GIS_PARAMS}`));
   if (!data.features) throw new Error('No features in GIS response');
-
-  return data.features.map(f => {
+  const leads = data.features.map(f => {
     const a = f.attributes;
     return {
       pid:           a.PID,
@@ -466,36 +154,269 @@ async function fetchLeads() {
       buildingValue: a.BLDG_MV1,
     };
   });
+  log(`Fetched ${leads.length} leads`);
+  return leads;
+}
+
+// ─── LOGIS permit check via Puppeteer ────────────────────────────────────────
+
+async function checkPermitsForAddress(page, address, city) {
+  const url = getLogisUrl(city);
+  if (!url) return { status: 'SKIP', reason: `City not on LOGIS: ${city}`, permits: [] };
+
+  const { houseNum, streetName } = parseAddress(address);
+
+  try {
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: PAGE_TIMEOUT_MS });
+
+    // Find and fill the house number field
+    // LOGIS uses ASP.NET WebForms — try common field selectors
+    const houseSelectors = [
+      'input[name*="HouseNum"]', 'input[id*="HouseNum"]',
+      'input[name*="houseNum"]', 'input[id*="houseNum"]',
+      'input[name*="HouseNumber"]', 'input[id*="HouseNumber"]',
+      'input[name*="Addr"]', 'input[id*="Addr"]',
+      'input[name*="txtHouse"]', 'input[id*="txtHouse"]',
+    ];
+    const streetSelectors = [
+      'input[name*="StreetName"]', 'input[id*="StreetName"]',
+      'input[name*="streetName"]', 'input[id*="streetName"]',
+      'input[name*="Street"]', 'input[id*="Street"]',
+      'input[name*="txtStreet"]', 'input[id*="txtStreet"]',
+      'select[name*="Street"]', 'select[id*="Street"]',
+      'select[name*="StreetName"]', 'select[id*="StreetName"]',
+    ];
+
+    // Try each selector until one is found
+    let houseField = null;
+    for (const sel of houseSelectors) {
+      const el = await page.$(sel);
+      if (el) { houseField = sel; break; }
+    }
+
+    let streetField = null;
+    for (const sel of streetSelectors) {
+      const el = await page.$(sel);
+      if (el) { streetField = sel; break; }
+    }
+
+    // If we still can't find fields, dump all inputs for debugging
+    if (!houseField || !streetField) {
+      const allFields = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('input, select, textarea'))
+          .filter(el => el.type !== 'hidden')
+          .map(el => ({ tag: el.tagName, type: el.type, name: el.name, id: el.id }));
+      });
+      return {
+        status: 'ERROR',
+        error: `Could not find form fields. Fields on page: ${JSON.stringify(allFields)}`,
+        permits: [],
+      };
+    }
+
+    // Clear and fill house number
+    await page.click(houseField, { clickCount: 3 });
+    await page.type(houseField, houseNum);
+
+    // Street name — handle both text input and dropdown
+    const streetTag = await page.$eval(streetField, el => el.tagName.toLowerCase());
+    if (streetTag === 'select') {
+      // Try to select matching option (partial match)
+      const selected = await page.evaluate((sel, street) => {
+        const el = document.querySelector(sel);
+        const options = Array.from(el.options);
+        const match = options.find(o => o.text.toUpperCase().includes(street.toUpperCase()));
+        if (match) { el.value = match.value; el.dispatchEvent(new Event('change')); return true; }
+        return false;
+      }, streetField, streetName);
+      if (!selected) {
+        return { status: 'UNKNOWN', error: `Street "${streetName}" not found in dropdown`, permits: [] };
+      }
+    } else {
+      await page.click(streetField, { clickCount: 3 });
+      await page.type(streetField, streetName);
+    }
+
+    // Set permit type to Building if dropdown exists
+    const permitTypeSelectors = [
+      'select[name*="PermitType"]', 'select[id*="PermitType"]',
+      'select[name*="permitType"]', 'select[id*="permitType"]',
+      'select[name*="ddlPermit"]', 'select[id*="ddlPermit"]',
+    ];
+    for (const sel of permitTypeSelectors) {
+      const el = await page.$(sel);
+      if (el) {
+        await page.select(sel, 'Building').catch(() => {}); // ignore if "Building" not an option value
+        break;
+      }
+    }
+
+    // Click Search button
+    const searchSelectors = [
+      'input[value="Search"]', 'button[id*="Search"]', 'input[id*="Search"]',
+      'input[value*="Search"]', 'button[value*="Search"]',
+      'input[id*="btnSearch"]', 'button[id*="btnSearch"]',
+    ];
+    let clicked = false;
+    for (const sel of searchSelectors) {
+      const el = await page.$(sel);
+      if (el) { await el.click(); clicked = true; break; }
+    }
+    if (!clicked) {
+      return { status: 'ERROR', error: 'Could not find Search button', permits: [] };
+    }
+
+    // Wait for results to load
+    await page.waitForNetworkIdle({ timeout: PAGE_TIMEOUT_MS }).catch(() => {});
+    await sleep(500); // small buffer for JS rendering
+
+    // Check for "no records" text
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    const bodyLower = bodyText.toLowerCase();
+    if (
+      bodyLower.includes('no records found') ||
+      bodyLower.includes('0 record') ||
+      bodyLower.includes('no permits found') ||
+      bodyLower.includes('no results')
+    ) {
+      return { status: 'CLEAR', permits: [] };
+    }
+
+    // Parse the results table
+    const permits = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('table tr'));
+      const results = [];
+      for (const row of rows) {
+        const cells = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
+        if (cells.length < 5) continue;
+        // Permit numbers look like SL######, BL######, etc.
+        if (!/^[A-Z]{1,4}\d{4,}/.test(cells[0])) continue;
+        results.push({
+          permitNum:   cells[0] || '',
+          permitType:  cells[1] || '',
+          subType:     cells[2] || '',
+          workType:    cells[3] || '',
+          description: cells[4] || '',
+          address:     cells[5] || '',
+          contractor:  cells[6] || '',
+          issuedDate:  cells[7] || '',
+          appliedDate: cells[8] || '',
+        });
+      }
+      return results;
+    });
+
+    if (permits.length === 0) {
+      return { status: 'CLEAR', permits: [] };
+    }
+
+    // Check for disqualifying reroof permits within lookback window
+    const reroofPermits = permits.filter(p =>
+      isReroofPermit(p.description) || isReroofPermit(p.subType) || isReroofPermit(p.workType)
+    );
+    const recentReroof = reroofPermits.filter(p =>
+      isWithinLookback(p.issuedDate) || isWithinLookback(p.appliedDate)
+    );
+
+    if (recentReroof.length > 0) {
+      const p = recentReroof[0];
+      return {
+        status: 'FLAGGED',
+        reason: `${p.subType || p.workType || p.description} — issued ${p.issuedDate || p.appliedDate}`,
+        permits,
+        reroofPermits: recentReroof,
+      };
+    }
+
+    if (reroofPermits.length > 0) {
+      return {
+        status: 'CLEAR',
+        note: `Old reroof outside ${REROOF_LOOKBACK_YEARS}yr window: ${reroofPermits[0].description} (${reroofPermits[0].issuedDate})`,
+        permits,
+      };
+    }
+
+    return { status: 'CLEAR', permits };
+
+  } catch (err) {
+    return { status: 'ERROR', error: err.message, permits: [] };
+  }
+}
+
+// ─── Write output ─────────────────────────────────────────────────────────────
+
+function writeOutput(results) {
+  const out = {
+    generatedAt:   new Date().toISOString(),
+    lookbackYears: REROOF_LOOKBACK_YEARS,
+    totalChecked:  results.length,
+    flagged:       results.filter(r => r.status === 'FLAGGED').length,
+    clear:         results.filter(r => r.status === 'CLEAR').length,
+    unknown:       results.filter(r => r.status === 'UNKNOWN').length,
+    skip:          results.filter(r => r.status === 'SKIP').length,
+    errors:        results.filter(r => r.status === 'ERROR').length,
+    results,
+  };
+  fs.writeFileSync(OUTPUT_FILE, JSON.stringify(out, null, 2));
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  log('SilentRoof LOGIS Permit Scraper');
-  log(`Lookback window: ${REROOF_LOOKBACK_YEARS} years`);
+  // Check puppeteer is installed
+  let puppeteer;
+  try {
+    puppeteer = require('puppeteer');
+  } catch (e) {
+    console.error('\n❌ Puppeteer not installed. Run this first:\n\n   npm install puppeteer\n');
+    process.exit(1);
+  }
 
-  // --probe mode: just show the URL for a city (to verify routing)
+  log('SilentRoof LOGIS Permit Scraper (Puppeteer)');
+  log(`Lookback window: ${REROOF_LOOKBACK_YEARS} years`);
+  log(headedMode ? 'Mode: headed (browser visible)' : 'Mode: headless');
+
+  const browser = await puppeteer.launch({
+    headless: !headedMode,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1280, height: 900 });
+
+  // ── Probe mode ──────────────────────────────────────────────────────────────
   if (probeCity) {
     const url = getLogisUrl(probeCity);
-    if (url) {
-      log(`Probe: ${probeCity} → ${url}`);
-      const resp = await get(url);
-      log(`HTTP status: ${resp.status}`);
-      if (resp.status === 200) {
-        const fields = extractHiddenFields(resp.body);
-        log('Hidden fields found: ' + Object.keys(fields).join(', '));
-        const houseField = findFieldName(resp.body, ['HouseNum', 'housenum', 'HouseNumber']);
-        const streetField = findFieldName(resp.body, ['StreetName', 'streetname', 'Street']);
-        log(`House number field: ${houseField}`);
-        log(`Street name field:  ${streetField}`);
-      }
+    if (!url) {
+      log(`"${probeCity}" is not in the LOGIS_CITIES map.`);
+      await browser.close();
+      return;
+    }
+    log(`Probe: ${probeCity} → ${url}`);
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: PAGE_TIMEOUT_MS });
+
+    const fields = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('input, select, textarea'))
+        .filter(el => el.type !== 'hidden')
+        .map(el => ({ tag: el.tagName, type: el.type || el.tagName, name: el.name, id: el.id }));
+    });
+
+    log(`\nAll visible form fields on "${probeCity}" LOGIS page:`);
+    for (const f of fields) {
+      log(`  ${f.tag.padEnd(7)} type=${String(f.type).padEnd(10)} name="${f.name}"   id="${f.id}"`);
+    }
+
+    if (headedMode) {
+      log('\nBrowser open — press Ctrl+C when done inspecting.');
+      await new Promise(() => {}); // keep open
     } else {
-      log(`City "${probeCity}" is not in the LOGIS_CITIES map.`);
+      await browser.close();
     }
     return;
   }
 
-  // Load existing results for resume mode
+  // ── Full run ─────────────────────────────────────────────────────────────────
+
+  // Load existing results if resuming
   let existing = {};
   if (resumeMode && fs.existsSync(OUTPUT_FILE)) {
     try {
@@ -503,17 +424,13 @@ async function main() {
       for (const r of (prev.results || [])) {
         if (r.status !== 'ERROR') existing[`${r.address}|${r.city}`] = r;
       }
-      log(`Resume: ${Object.keys(existing).length} leads already verified`);
-    } catch (e) {
-      log(`Could not load existing results: ${e.message}`);
-    }
+      log(`Resume: ${Object.keys(existing).length} already verified`);
+    } catch (e) { log(`Could not load existing results: ${e.message}`); }
   }
 
-  // Fetch all leads
+  // Fetch leads
   let leads = await fetchLeads();
-  log(`Total leads from GIS: ${leads.length}`);
 
-  // Filter by city if requested
   if (filterCity) {
     leads = leads.filter(l => l.city === filterCity.toUpperCase().trim());
     log(`Filtered to "${filterCity}": ${leads.length} leads`);
@@ -527,82 +444,63 @@ async function main() {
     seen.add(key);
     return true;
   });
-  log(`Unique addresses: ${leads.length}`);
 
-  // Apply limit
   if (limitCount) leads = leads.slice(0, limitCount);
 
-  // Show city breakdown and LOGIS coverage
-  const byCityCount = {};
-  for (const l of leads) byCityCount[l.city] = (byCityCount[l.city] || 0) + 1;
+  // Show city breakdown
+  const byCityCounts = {};
+  for (const l of leads) byCityCounts[l.city] = (byCityCounts[l.city] || 0) + 1;
   log('\nLeads by city:');
-  for (const [city, count] of Object.entries(byCityCount).sort((a, b) => b[1] - a[1])) {
+  for (const [city, count] of Object.entries(byCityCounts).sort((a, b) => b[1] - a[1])) {
     const onLogis = getLogisUrl(city) ? '✓ LOGIS' : '✗ no API';
-    log(`  ${city.padEnd(20)} ${count} leads   ${onLogis}`);
+    log(`  ${city.padEnd(22)} ${String(count).padStart(3)} leads   ${onLogis}`);
   }
   console.log('');
 
-  // Run checks
   const results = [];
   let done = 0, flagged = 0, clear = 0, skipped = 0, noApi = 0;
 
   for (const lead of leads) {
     const key = `${lead.address}|${lead.city}`;
 
-    // Resume: reuse existing result
     if (resumeMode && existing[key]) {
       results.push(existing[key]);
       skipped++;
       continue;
     }
 
-    done++;
-    const progress = `[${done + skipped}/${leads.length}]`;
-
-    const logisUrl = getLogisUrl(lead.city);
-    if (!logisUrl) {
-      log(`${progress} SKIP  ${lead.address}, ${lead.city} — city not on LOGIS`);
+    if (!getLogisUrl(lead.city)) {
+      log(`[${done + skipped + noApi + 1}/${leads.length}] SKIP  ${lead.address}, ${lead.city} — not on LOGIS`);
       results.push({ ...lead, checkedAt: new Date().toISOString(), status: 'SKIP', reason: 'City not on LOGIS', permits: [] });
       noApi++;
+      writeOutput(results);
       continue;
     }
 
-    log(`${progress} CHECK ${lead.address}, ${lead.city} ${lead.zip}`);
+    done++;
+    log(`[${done + skipped + noApi}/${leads.length}] CHECK ${lead.address}, ${lead.city} ${lead.zip || ''}`);
 
-    const result = await queryLogisAddress(lead.address, lead.city, lead.zip);
-
+    const result = await checkPermitsForAddress(page, lead.address, lead.city);
     const record = {
-      pid:          lead.pid,
-      owner:        lead.owner,
-      address:      lead.address,
-      city:         lead.city,
-      zip:          lead.zip,
-      yearBuilt:    lead.yearBuilt,
-      checkedAt:    new Date().toISOString(),
+      pid: lead.pid, owner: lead.owner, address: lead.address,
+      city: lead.city, zip: lead.zip, yearBuilt: lead.yearBuilt,
+      checkedAt: new Date().toISOString(),
       ...result,
     };
-
     results.push(record);
 
-    if (result.status === 'FLAGGED') {
-      flagged++;
-      log(`  ⛔ FLAGGED — ${result.reason}`);
-    } else if (result.status === 'CLEAR') {
-      clear++;
-      log(`  ✓ CLEAR${result.note ? '  note: ' + result.note : ''}`);
-    } else if (result.status === 'UNKNOWN') {
-      log(`  ? UNKNOWN — ${result.error}`);
-    } else if (result.status === 'ERROR') {
-      log(`  ✗ ERROR — ${result.error}`);
-    }
+    if (result.status === 'FLAGGED')      { flagged++; log(`  ⛔ FLAGGED — ${result.reason}`); }
+    else if (result.status === 'CLEAR')   { clear++;   log(`  ✓ CLEAR${result.note ? ' — ' + result.note : ''}`); }
+    else if (result.status === 'UNKNOWN') { log(`  ? UNKNOWN — ${result.error}`); }
+    else                                  { log(`  ✗ ERROR — ${result.error}`); }
 
-    // Persist after every record (crash-safe)
     writeOutput(results);
 
     if (done < leads.length - skipped - noApi) await sleep(REQUEST_DELAY_MS);
   }
 
-  // Final summary
+  await browser.close();
+
   console.log('\n' + '═'.repeat(60));
   log('COMPLETE');
   log(`Checked:  ${done}`);
@@ -612,29 +510,15 @@ async function main() {
   log(`CLEAR:    ${clear}`);
   log(`UNKNOWN:  ${results.filter(r => r.status === 'UNKNOWN').length}`);
   log(`ERROR:    ${results.filter(r => r.status === 'ERROR').length}`);
-  log(`Output:   ${OUTPUT_FILE}`);
+  log(`\nOutput: ${OUTPUT_FILE}`);
+  log('Load that file in the dashboard using "Load Permit Results".');
 
   if (flagged > 0) {
-    console.log('\n⛔ Leads to move to COLD:');
-    for (const r of results.filter(r => r.status === 'FLAGGED')) {
-      console.log(`   ${r.address}, ${r.city} — ${r.reason}`);
-    }
+    console.log('\n⛔ Leads to move to Cold:');
+    results.filter(r => r.status === 'FLAGGED').forEach(r =>
+      console.log(`   ${r.address}, ${r.city} — ${r.reason}`)
+    );
   }
-}
-
-function writeOutput(results) {
-  const out = {
-    generatedAt:    new Date().toISOString(),
-    lookbackYears:  REROOF_LOOKBACK_YEARS,
-    totalChecked:   results.length,
-    flagged:        results.filter(r => r.status === 'FLAGGED').length,
-    clear:          results.filter(r => r.status === 'CLEAR').length,
-    unknown:        results.filter(r => r.status === 'UNKNOWN').length,
-    skip:           results.filter(r => r.status === 'SKIP').length,
-    errors:         results.filter(r => r.status === 'ERROR').length,
-    results,
-  };
-  fs.writeFileSync(OUTPUT_FILE, JSON.stringify(out, null, 2));
 }
 
 main().catch(err => {
