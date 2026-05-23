@@ -210,6 +210,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <div class="stat-card"><div class="stat-num hot" id="hotCount">—</div><div class="stat-label">Hot — under 2 yrs</div></div>
         <div class="stat-card"><div class="stat-num warm" id="warmCount">—</div><div class="stat-label">Warm — 2–5 yrs</div></div>
         <div class="stat-card"><div class="stat-num watch" id="watchCount">—</div><div class="stat-label">Watch — 5–10 yrs</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--muted)" id="coldCount">0</div><div class="stat-label">Cold — recently reroofed</div></div>
         <div class="stat-card"><div class="stat-num total" id="totalCount">—</div><div class="stat-label">Total leads</div></div>
       </div>
       <div class="sidebar-section">
@@ -228,6 +229,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <button class="filter-btn" onclick="setFilter('hot',this)"><span class="filter-dot" style="background:var(--hot)"></span>Hot<span class="filter-count" id="fc-hot">0</span></button>
         <button class="filter-btn" onclick="setFilter('warm',this)"><span class="filter-dot" style="background:var(--warm)"></span>Warm<span class="filter-count" id="fc-warm">0</span></button>
         <button class="filter-btn" onclick="setFilter('watch',this)"><span class="filter-dot" style="background:var(--watch)"></span>Watch<span class="filter-count" id="fc-watch">0</span></button>
+        <button class="filter-btn" onclick="setFilter('cold',this)"><span class="filter-dot" style="background:var(--muted2)"></span>Cold<span class="filter-count" id="fc-cold">0</span></button>
       </div>
       <div style="padding:10px 20px;margin-top:auto;border-top:1px solid var(--border)">
         <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--muted2);text-transform:uppercase;margin-bottom:3px">Data source</div>
@@ -439,7 +441,11 @@ function getVisibleLeads(){
   if(dataSource==='demo'){
     leads = currentTier==='starter' ? leads.slice(0,4) : currentTier==='pro' ? leads.slice(0,7) : leads;
   }
-  if(activeFilter!=='all') leads=leads.filter(l=>l.tier===activeFilter);
+  if(activeFilter==='cold'){
+    leads=leads.filter(l=>permitCache[l.id]&&permitCache[l.id].status==='FLAGGED');
+  } else if(activeFilter!=='all'){
+    leads=leads.filter(l=>l.tier===activeFilter&&!(permitCache[l.id]&&permitCache[l.id].status==='FLAGGED'));
+  }
   if(activeSearch) leads=leads.filter(l=>
     l.name.toLowerCase().includes(activeSearch)||
     l.addr.toLowerCase().includes(activeSearch)||
@@ -452,9 +458,12 @@ function updateCounts(){
   const base = dataSource==='demo'
     ? (currentTier==='starter'?allLeads.slice(0,4):currentTier==='pro'?allLeads.slice(0,7):allLeads)
     : (currentTier==='starter'&&TIER_ZIPS.starter ? allLeads.filter(l=>TIER_ZIPS.starter.has(l.zip)) : allLeads);
-  const hot=base.filter(l=>l.tier==='hot').length;
-  const warm=base.filter(l=>l.tier==='warm').length;
-  const watch=base.filter(l=>l.tier==='watch').length;
+  // A lead is "cold" if its permit check came back FLAGGED (recent reroof found)
+  const isCold = l => permitCache[l.id] && permitCache[l.id].status === 'FLAGGED';
+  const hot   = base.filter(l=>l.tier==='hot'  && !isCold(l)).length;
+  const warm  = base.filter(l=>l.tier==='warm' && !isCold(l)).length;
+  const watch = base.filter(l=>l.tier==='watch'&& !isCold(l)).length;
+  const cold  = base.filter(l=>isCold(l)).length;
   document.getElementById('hotCount').textContent=hot;
   document.getElementById('warmCount').textContent=warm;
   document.getElementById('watchCount').textContent=watch;
@@ -463,6 +472,11 @@ function updateCounts(){
   document.getElementById('fc-hot').textContent=hot;
   document.getElementById('fc-warm').textContent=warm;
   document.getElementById('fc-watch').textContent=watch;
+  // Update cold count if the element exists
+  const coldEl=document.getElementById('fc-cold');
+  if(coldEl) coldEl.textContent=cold;
+  const coldCountEl=document.getElementById('coldCount');
+  if(coldCountEl) coldCountEl.textContent=cold;
 }
 
 function renderList(){
