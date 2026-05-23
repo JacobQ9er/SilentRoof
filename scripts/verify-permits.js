@@ -234,35 +234,57 @@ async function checkPermitsForAddress(page, lead) {
     }
 
     // Parse the results table
-    const permits = await page.evaluate(() => {
+    // First, grab raw header columns so we can map positions correctly
+    const { headers, permits } = await page.evaluate(() => {
       const rows = Array.from(document.querySelectorAll('table tr'));
       const results = [];
+      let headers = [];
+
       for (const row of rows) {
+        // Capture header row
+        const ths = Array.from(row.querySelectorAll('th')).map(th => th.innerText.trim());
+        if (ths.length > 3) { headers = ths; continue; }
+
         const cells = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
         if (cells.length < 5) continue;
-        // Permit numbers look like SL######, BL######, etc.
         if (!/^[A-Z]{1,4}\d{4,}/.test(cells[0])) continue;
+
+        // Map by header name if available, otherwise fall back to position
+        const col = (name, fallback) => {
+          const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+          return idx >= 0 ? (cells[idx] || '') : (cells[fallback] || '');
+        };
+
         results.push({
-          permitNum:   cells[0] || '',
-          permitType:  cells[1] || '',
-          subType:     cells[2] || '',
-          workType:    cells[3] || '',
-          description: cells[4] || '',
-          address:     cells[5] || '',
-          contractor:  cells[6] || '',
-          issuedDate:  cells[7] || '',
-          appliedDate: cells[8] || '',
+          permitNum:   cells[0],
+          permitType:  col('permit type', 1),
+          subType:     col('sub type',    2),
+          workType:    col('work type',   3),
+          description: col('description', 4),
+          address:     col('address',     5),
+          contractor:  col('contractor',  6),
+          issuedDate:  col('issued',      7),
+          appliedDate: col('applied',     8),
+          _raw: cells, // keep raw for debugging
         });
       }
-      return results;
+      return { headers, results };
     });
+
+    // Log headers once so we can verify column mapping
+    if (headers.length > 0) {
+      process.stdout.write(`  columns: ${headers.join(' | ')}\n`);
+    }
 
     if (permits.length === 0) {
       return { status: 'CLEAR', permits: [] };
     }
 
+    // Strip _raw before storing (keeps output clean)
+    const cleanPermits = permits.map(p => { const { _raw, ...rest } = p; return rest; });
+
     // Check for disqualifying reroof permits within lookback window
-    const reroofPermits = permits.filter(p =>
+    const reroofPermits = cleanPermits.filter(p =>
       isReroofPermit(p.description) || isReroofPermit(p.subType) || isReroofPermit(p.workType)
     );
     const recentReroof = reroofPermits.filter(p =>
@@ -274,7 +296,7 @@ async function checkPermitsForAddress(page, lead) {
       return {
         status: 'FLAGGED',
         reason: `${p.subType || p.workType || p.description} — issued ${p.issuedDate || p.appliedDate}`,
-        permits,
+        permits: cleanPermits,
         reroofPermits: recentReroof,
       };
     }
@@ -283,11 +305,11 @@ async function checkPermitsForAddress(page, lead) {
       return {
         status: 'CLEAR',
         note: `Old reroof outside ${REROOF_LOOKBACK_YEARS}yr window: ${reroofPermits[0].description} (${reroofPermits[0].issuedDate})`,
-        permits,
+        permits: cleanPermits,
       };
     }
 
-    return { status: 'CLEAR', permits };
+    return { status: 'CLEAR', permits: cleanPermits };
 
   } catch (err) {
     return { status: 'ERROR', error: err.message, permits: [] };
