@@ -46,7 +46,8 @@ const OUTPUT_FILE = path.join(__dirname, 'permit-results.json');
 
 // Hennepin County GIS — same query the dashboard uses
 const GIS_URL    = 'https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query';
-const GIS_PARAMS = "where=BUILD_YR+%3E%3D+'1985'+AND+BUILD_YR+%3C%3D+'2000'+AND+BLDG_MV1+%3E+100000+AND+PR_TYP_CD1+%3C%3E+'R'&outFields=OWNER_NM%2CSITUS_ADDR%2CSITUS_CITY%2CSITUS_ZIP%2CBUILD_YR%2CPR_TYP_CD1%2CBLDG_MV1%2CPID&f=json&resultRecordCount=2000&resultOffset=0";
+// Exact same fields and where clause as permits.js Vercel function
+const GIS_PARAMS = 'where=BUILD_YR+%3E%3D+%271985%27+AND+BUILD_YR+%3C%3D+%272000%27+AND+BLDG_MV1+%3E+100000+AND+PR_TYP_CD1+%3C%3E+%27R%27&outFields=PID%2CBUILD_YR%2CPR_TYP_CD1%2COWNER_NM%2CHOUSE_NO%2CSTREET_NM%2CMAILING_MUNIC_NM%2CZIP_CD%2CBLDG_MV1&resultRecordCount=2000&resultOffset=0&orderByFields=BUILD_YR+ASC&f=json';
 
 // ─── LOGIS city routing ───────────────────────────────────────────────────────
 
@@ -150,12 +151,16 @@ async function fetchLeads() {
   }
   const leads = data.features.map(f => {
     const a = f.attributes;
+    const houseNo  = String(a.HOUSE_NO  || '').trim();
+    const streetNm = String(a.STREET_NM || '').trim();
     return {
       pid:           a.PID,
       owner:         a.OWNER_NM,
-      address:       (a.SITUS_ADDR || '').trim(),
-      city:          (a.SITUS_CITY || '').trim().toUpperCase(),
-      zip:           a.SITUS_ZIP,
+      address:       `${houseNo} ${streetNm}`.trim(),
+      houseNum:      houseNo,
+      streetName:    streetNm,
+      city:          (a.MAILING_MUNIC_NM || '').trim().toUpperCase(),
+      zip:           a.ZIP_CD,
       yearBuilt:     a.BUILD_YR,
       propertyType:  a.PR_TYP_CD1,
       buildingValue: a.BLDG_MV1,
@@ -167,11 +172,15 @@ async function fetchLeads() {
 
 // ─── LOGIS permit check via Puppeteer ────────────────────────────────────────
 
-async function checkPermitsForAddress(page, address, city) {
+async function checkPermitsForAddress(page, lead) {
+  const { address, city, houseNum: preHouseNum, streetName: preStreetName } = lead;
   const url = getLogisUrl(city);
   if (!url) return { status: 'SKIP', reason: `City not on LOGIS: ${city}`, permits: [] };
 
-  const { houseNum, streetName } = parseAddress(address);
+  // Use pre-split fields from GIS if available, otherwise parse the combined address
+  const { houseNum, streetName } = (preHouseNum && preStreetName)
+    ? { houseNum: preHouseNum, streetName: preStreetName }
+    : parseAddress(address);
 
   // Confirmed field IDs from LOGIS search.aspx (probed 2026-05-22)
   const HOUSE_ID   = '#b_b_address_txtHouse';
@@ -449,7 +458,7 @@ async function main() {
     done++;
     log(`[${done + skipped + noApi}/${leads.length}] CHECK ${lead.address}, ${lead.city} ${lead.zip || ''}`);
 
-    const result = await checkPermitsForAddress(page, lead.address, lead.city);
+    const result = await checkPermitsForAddress(page, lead);
     const record = {
       pid: lead.pid, owner: lead.owner, address: lead.address,
       city: lead.city, zip: lead.zip, yearBuilt: lead.yearBuilt,
