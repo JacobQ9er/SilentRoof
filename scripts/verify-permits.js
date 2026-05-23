@@ -233,15 +233,15 @@ async function checkPermitsForAddress(page, lead) {
       return { status: 'CLEAR', permits: [] };
     }
 
-    // Parse the results table
-    // First, grab raw header columns so we can map positions correctly
-    const { headers, permits } = await page.evaluate(() => {
+    // Parse the results table using confirmed column headers from LOGIS:
+    // Permit # | (Inspections link) | Permit Type | Sub Type | Work Type | Description | Address | Contractor | Issued Date | Applied Date | Final Date | Expiration Date | Cancelled Date | ePermit
+    const parseResult = await page.evaluate(() => {
       const rows = Array.from(document.querySelectorAll('table tr'));
       const results = [];
       let headers = [];
 
       for (const row of rows) {
-        // Capture header row
+        // Capture header row (th elements)
         const ths = Array.from(row.querySelectorAll('th')).map(th => th.innerText.trim());
         if (ths.length > 3) { headers = ths; continue; }
 
@@ -249,27 +249,35 @@ async function checkPermitsForAddress(page, lead) {
         if (cells.length < 5) continue;
         if (!/^[A-Z]{1,4}\d{4,}/.test(cells[0])) continue;
 
-        // Map by header name if available, otherwise fall back to position
+        // Use header-based mapping (most reliable)
+        // Fall back to hardcoded positions matching confirmed LOGIS column order:
+        // 0=Permit#, 1=(blank/Inspections), 2=Permit Type, 3=Sub Type, 4=Work Type,
+        // 5=Description, 6=Address, 7=Contractor, 8=Issued Date, 9=Applied Date
         const col = (name, fallback) => {
-          const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
-          return idx >= 0 ? (cells[idx] || '') : (cells[fallback] || '');
+          if (headers.length > 0) {
+            const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+            if (idx >= 0) return cells[idx] || '';
+          }
+          return cells[fallback] || '';
         };
 
         results.push({
           permitNum:   cells[0],
-          permitType:  col('permit type', 1),
-          subType:     col('sub type',    2),
-          workType:    col('work type',   3),
-          description: col('description', 4),
-          address:     col('address',     5),
-          contractor:  col('contractor',  6),
-          issuedDate:  col('issued',      7),
-          appliedDate: col('applied',     8),
-          _raw: cells, // keep raw for debugging
+          permitType:  col('permit type', 2),
+          subType:     col('sub type',    3),
+          workType:    col('work type',   4),
+          description: col('description', 5),
+          address:     col('address',     6),
+          contractor:  col('contractor',  7),
+          issuedDate:  col('issued',      8),
+          appliedDate: col('applied',     9),
         });
       }
       return { headers, results };
     });
+
+    const headers = parseResult.headers;
+    const permits = parseResult.results;
 
     // Log headers once so we can verify column mapping
     if (headers.length > 0) {
