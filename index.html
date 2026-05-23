@@ -231,6 +231,12 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <button class="filter-btn" onclick="setFilter('watch',this)"><span class="filter-dot" style="background:var(--watch)"></span>Watch<span class="filter-count" id="fc-watch">0</span></button>
         <button class="filter-btn" onclick="setFilter('cold',this)"><span class="filter-dot" style="background:var(--muted2)"></span>Cold<span class="filter-count" id="fc-cold">0</span></button>
       </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Sort by</div>
+        <button class="filter-btn active" id="sort-permit" onclick="setSort('permit',this)"><span class="filter-dot" style="background:var(--watch)"></span>Permit status</button>
+        <button class="filter-btn" id="sort-score" onclick="setSort('score',this)"><span class="filter-dot" style="background:var(--accent)"></span>Lead score</button>
+        <button class="filter-btn" id="sort-city" onclick="setSort('city',this)"><span class="filter-dot" style="background:var(--muted)"></span>City</button>
+      </div>
       <div style="padding:10px 20px;margin-top:auto;border-top:1px solid var(--border)">
         <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--muted2);text-transform:uppercase;margin-bottom:3px">Data source</div>
         <div style="font-size:10px;color:var(--muted);line-height:1.6">Minneapolis Open Data<br>CCS Permits API</div>
@@ -266,7 +272,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 <script>
 const CYCLE = 30;
 const NOW_YEAR = new Date().getFullYear();
-let allLeads = [], activeFilter = 'all', activeSearch = '', selectedId = null, currentTier = 'pro', dataSource = 'none';
+let allLeads = [], activeFilter = 'all', activeSearch = '', selectedId = null, currentTier = 'pro', dataSource = 'none', activeSort = 'score';
 
 const TIER_ZIPS = {
   starter: new Set(['55401','55402','55403','55404','55405','55406','55407','55408','55409','55410','55411','55412','55413','55414','55415','55416','55417','55418','55419','55420','55421','55422','55423','55424','55425']),
@@ -433,6 +439,21 @@ function setFilter(f,btn){
 
 function filterLeads(q){ activeSearch=q.toLowerCase(); renderList(); }
 
+function setSort(s, btn) {
+  activeSort = s;
+  document.querySelectorAll('#sort-permit,#sort-score,#sort-city').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderList();
+}
+
+function permitSortKey(l) {
+  const pv = permitCache[l.id];
+  if (!pv || !pv.status) return 2; // unchecked — middle
+  if (pv.status === 'CLEAR')   return 0; // green first
+  if (pv.status === 'FLAGGED') return 3; // red last
+  return 2; // SKIP/UNKNOWN — middle
+}
+
 function getVisibleLeads(){
   let leads = [...allLeads];
   if(dataSource==='live' && currentTier==='starter' && TIER_ZIPS.starter){
@@ -451,6 +472,14 @@ function getVisibleLeads(){
     l.addr.toLowerCase().includes(activeSearch)||
     l.city.toLowerCase().includes(activeSearch)
   );
+  // Sort
+  if(activeSort==='permit'){
+    leads.sort((a,b) => permitSortKey(a) - permitSortKey(b) || a.yearsLeft - b.yearsLeft);
+  } else if(activeSort==='city'){
+    leads.sort((a,b) => (a.city||'').localeCompare(b.city||'') || permitSortKey(a) - permitSortKey(b));
+  } else {
+    leads.sort((a,b) => a.yearsLeft - b.yearsLeft); // default: score
+  }
   return leads;
 }
 
@@ -573,8 +602,16 @@ function selectLead(id){
 function exportCSV(){
   const leads=getVisibleLeads();
   if(!leads.length){alert('No leads to export.');return;}
-  const h=['Name','Address','City','Zip','Type','Permit Date','Permit #','Years Remaining','Tier','Score','Source'];
-  const rows=leads.map(l=>[l.name,l.addr,l.city,l.zip,l.type,l.permitDate,l.permitNum||'—',l.yearsLeft.toFixed(1),l.tier,l.score,l.source].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const h=['Permit Status','Name','Address','City','Zip','Type','Year Built','Years Overdue','Tier','Score','Est Contract Low','Est Contract High','Permit Checked'];
+  const rows=leads.map(l=>{
+    const pv=permitCache[l.id]||{};
+    const status = pv.status==='CLEAR' ? 'VERIFIED CLEAR' : pv.status==='FLAGGED' ? 'COLD - REROOFED' : pv.status==='SKIP' ? 'UNVERIFIED' : 'UNVERIFIED';
+    const checkedAt = pv.checkedAt ? new Date(pv.checkedAt).toLocaleDateString() : '';
+    const contractLow  = l.sqft ? '$'+Math.round(l.sqft*4).toLocaleString()  : '—';
+    const contractHigh = l.sqft ? '$'+Math.round(l.sqft*8).toLocaleString()  : '—';
+    return [status,l.name,l.addr,l.city,l.zip,l.type,l.permitDate,Math.abs(l.yearsLeft).toFixed(1),l.tier.toUpperCase(),l.score,contractLow,contractHigh,checkedAt]
+      .map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',');
+  });
   const csv=[h.join(','),...rows].join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
