@@ -56,32 +56,27 @@ const GIS_PARAMS = new URLSearchParams({
 
 // ─── LOGIS city routing ───────────────────────────────────────────────────────
 
-// City codes confirmed from LOGIS home page (https://epermits.logis.org/home.aspx)
-// Pattern: https://epermits.logis.org/home.aspx?city=XX
-// The permit search page is: https://epermits.logis.org/Permits/BuildingPermits.aspx?city=XX
+// All city codes confirmed directly from LOGIS home page (https://epermits.logis.org/home.aspx)
+// Pattern: https://epermits.logis.org/Permits/BuildingPermits.aspx?city=XX
 const LOGIS_CITIES = {
-  'APPLE VALLEY':   'av',
-  'CRYSTAL':        'cy',
-  'EDEN PRAIRIE':   'ep',
-  'EDINA':          'ed',
-  'FARMINGTON':     'fa',
-  'GOLDEN VALLEY':  'gv',
-  'LE SUEUR':       'ls',
-  'MAPLE GROVE':    'mg',
-  'MINNETONKA':     'mt',
-  'RAMSEY':         'ra',
-  'SAVAGE':         'sa',
-  'SOUTH ST. PAUL': 'ss',
-  'SOUTH ST PAUL':  'ss',
-  'ST. LOUIS PARK': 'sl',
-  'ST LOUIS PARK':  'sl',
-  'WACONIA':        'wa',
-  'WHITE BEAR LAKE':'wb',
+  'APPLE VALLEY':   'av',  // confirmed
+  'CRYSTAL':        'cy',  // confirmed
+  'EDEN PRAIRIE':   'ep',  // confirmed
+  'EDINA':          'ed',  // confirmed
+  'FARMINGTON':     'fa',  // confirmed
+  'GOLDEN VALLEY':  'gv',  // confirmed
+  'LE SUEUR':       'ls',  // confirmed
+  'MAPLE GROVE':    'mg',  // confirmed
+  'MINNETONKA':     'mi',  // confirmed
+  'RAMSEY':         'ra',  // confirmed
+  'SAVAGE':         'sa',  // confirmed
+  'SOUTH ST. PAUL': 'ss',  // confirmed
+  'SOUTH ST PAUL':  'ss',  // confirmed
+  'ST. LOUIS PARK': 'sl',  // confirmed
+  'ST LOUIS PARK':  'sl',  // confirmed
+  'WACONIA':        'wa',  // confirmed
+  'WHITE BEAR LAKE':'wb',  // confirmed
 };
-
-// NOTE: Some city codes above (ep, ed, fa, gv, ls, mg, mt, ra, sa, ss, wa, wb) are guesses
-// based on the city abbreviation pattern. Run --probe on each city to verify before full run.
-// Confirmed codes: sl=St Louis Park, av=Apple Valley, cy=Crystal
 
 function getLogisUrl(city) {
   const code = LOGIS_CITIES[(city || '').toUpperCase().trim()];
