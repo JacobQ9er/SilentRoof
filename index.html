@@ -111,7 +111,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .permit-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:3px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap}
 .permit-badge.clear{background:rgba(48,209,88,.1);color:var(--watch);border:1px solid rgba(48,209,88,.3)}
 .permit-badge.flagged{background:rgba(255,59,48,.1);color:var(--hot);border:1px solid rgba(255,59,48,.3)}
-.permit-badge.unknown{background:rgba(255,159,10,.08);color:var(--warm);border:1px solid rgba(255,159,10,.25)}
+.permit-badge.unknown{background:rgba(90,112,144,.08);color:var(--muted);border:1px solid rgba(90,112,144,.25)}
+.permit-badge.skip{background:rgba(90,112,144,.06);color:var(--muted2);border:1px solid rgba(90,112,144,.18)}
 .permit-badge.checking{background:rgba(0,200,255,.08);color:var(--accent);border:1px solid rgba(0,200,255,.2)}
 .permit-result-card{background:var(--card);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;margin-top:8px}
 .permit-result-row{font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;padding:3px 0;border-bottom:1px solid rgba(30,45,69,.4)}
@@ -121,7 +122,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .row-permit-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:none}
 .row-permit-dot.clear{background:var(--watch);display:inline-block}
 .row-permit-dot.flagged{background:var(--hot);display:inline-block;box-shadow:0 0 4px var(--hot)}
-.row-permit-dot.unknown{background:var(--warm);display:inline-block}
+.row-permit-dot.unknown{background:var(--muted2);display:inline-block}
 
 /* PIPELINE CRM */
 .pipeline-wrap{padding:20px;overflow-y:auto;height:calc(100vh - 97px)}
@@ -188,6 +189,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="pulse-dot live" id="statusDot"></div>
       <span class="live-label" id="statusLabel">Ready</span>
       <button class="topbar-btn" onclick="verifyAllLeads()" id="verifyBtn" title="Check permit records for all loaded leads">⬡ Verify Leads</button>
+      <button class="topbar-btn primary" onclick="loadPermitResults()" id="loadPermitsBtn" title="Load permit-results.json from local scraper run">⬆ Load Permit Results</button>
+      <input type="file" id="permitResultsFile" accept=".json" style="display:none" onchange="handlePermitResultsFile(event)">
       <button class="topbar-btn" onclick="exportCSV()" id="exportBtn">Export CSV</button>
       <select id="pageSelect" style="font-family:var(--mono);font-size:10px;background:var(--card);border:1px solid var(--border2);color:var(--muted);padding:6px 8px;border-radius:3px;cursor:pointer" onchange="startScan()">
         <option value="0">Records 1–500</option>
@@ -470,10 +473,12 @@ function renderList(){
   }
   document.getElementById('leadList').innerHTML=leads.map((l,i)=>{
     const pv = permitCache[l.id] || {};
-    const dotClass = pv.status ? pv.status.toLowerCase() : '';
-    const dotTitle = pv.status === 'CLEAR' ? 'No roof permits found — HOT'
-      : pv.status === 'FLAGGED' ? `${pv.permitCount} roof permit(s) found — verify`
-      : pv.status === 'UNKNOWN' ? 'Permit data unavailable — manual check'
+    // SKIP and UNKNOWN get no dot color (invisible) — neutral, not a warning
+    const dotClass = (pv.status === 'CLEAR') ? 'clear' : (pv.status === 'FLAGGED') ? 'flagged' : '';
+    const dotTitle = pv.status === 'CLEAR'   ? 'No roof permits found — HOT'
+      : pv.status === 'FLAGGED' ? `Recent reroof permit found — moved to Cold`
+      : pv.status === 'SKIP'    ? 'City not on LOGIS — unverified'
+      : pv.status === 'UNKNOWN' ? 'No permit data for this city — unverified'
       : 'Not yet verified';
     return `
     <div class="lead-row${selectedId===l.id?' selected':''}" onclick="selectLead(${l.id})" style="animation-delay:${i*.025}s;grid-template-columns:28px 1fr 80px 90px 80px 60px 32px">
@@ -961,11 +966,12 @@ function renderPermitSection(l) {
     return `<span class="permit-badge checking">&#9679; Checking permits...</span>`;
   }
 
-  const badgeClass = pv.status === 'CLEAR' ? 'clear' : pv.status === 'FLAGGED' ? 'flagged' : 'unknown';
-  const badgeIcon = pv.status === 'CLEAR' ? '✓' : pv.status === 'FLAGGED' ? '⚠' : '?';
-  const badgeLabel = pv.status === 'CLEAR' ? 'Clear — No roof permits found'
-    : pv.status === 'FLAGGED' ? `Flagged — ${pv.permitCount} permit(s) found`
-    : 'Unknown — Manual check needed';
+  const badgeClass = pv.status === 'CLEAR' ? 'clear' : pv.status === 'FLAGGED' ? 'flagged' : pv.status === 'SKIP' ? 'skip' : 'unknown';
+  const badgeIcon  = pv.status === 'CLEAR' ? '✓' : pv.status === 'FLAGGED' ? '⚠' : '–';
+  const badgeLabel = pv.status === 'CLEAR'   ? 'Clear — No roof permits found'
+    : pv.status === 'FLAGGED' ? `Flagged — ${pv.permitCount || pv.reroofPermits?.length || 1} permit(s) found`
+    : pv.status === 'SKIP'    ? 'Unverified — City not on LOGIS yet'
+    : 'Unverified — No permit data for this city';
 
   let permitsHtml = '';
   if (pv.permits && pv.permits.length) {
@@ -978,10 +984,12 @@ function renderPermitSection(l) {
   }
 
   const msg = pv.status === 'CLEAR'
-    ? 'No roofing permits found in last 20 years. Lead is confirmed HOT.'
+    ? 'No roofing permits found. Lead is confirmed HOT.'
     : pv.status === 'FLAGGED'
-    ? 'Roof permit(s) found. Verify scope — if they replaced the full roof, remove from outreach.'
-    : pv.message || 'Permit data not available for this city.';
+    ? `Roof permit found: ${pv.reason || 'See permit details above'}. Lead moved to Cold.`
+    : pv.status === 'SKIP'
+    ? `${pv.city||'This city'} is not yet on LOGIS. Lead age signal is still valid — no permit data available to confirm or disqualify.`
+    : pv.message || `No permit database available for this city yet. Lead age signal is still valid.`;
 
   return `
     <span class="permit-badge ${badgeClass}">${badgeIcon} ${badgeLabel}</span>
@@ -1064,6 +1072,138 @@ async function verifyAllLeads() {
   const flagged  = results.filter(r => r.status === 'FLAGGED').length;
   const unknown  = results.filter(r => r.status === 'UNKNOWN').length;
   setStatus(`Verified ${leads.length} leads — ${cleared} clear · ${flagged} flagged · ${unknown} unknown`, 'var(--accent)');
+}
+
+// ─── Load permit-results.json from local scraper ─────────────────────────────
+
+function loadPermitResults() {
+  document.getElementById('permitResultsFile').click();
+}
+
+function handlePermitResultsFile(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      applyPermitResults(data);
+    } catch (err) {
+      alert('Could not parse permit-results.json: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  // Reset so same file can be reloaded if needed
+  evt.target.value = '';
+}
+
+function applyPermitResults(data) {
+  if (!data.results || !Array.isArray(data.results)) {
+    alert('Invalid permit-results.json — missing results array.');
+    return;
+  }
+
+  const REROOF_LOOKBACK_YEARS = data.lookbackYears || 10;
+  let matched = 0, flagged = 0, cleared = 0, skipped = 0;
+
+  // Build a lookup: "ADDRESS|CITY" → result record
+  const lookup = {};
+  for (const r of data.results) {
+    const key = `${(r.address||'').trim().toUpperCase()}|${(r.city||'').trim().toUpperCase()}`;
+    lookup[key] = r;
+  }
+
+  // Match against loaded leads
+  for (const lead of (allLeads || [])) {
+    const key = `${(lead.addr||'').trim().toUpperCase()}|${(lead.city||'').trim().toUpperCase()}`;
+    const r = lookup[key];
+    if (!r) continue;
+
+    matched++;
+
+    // Translate scraper result → permitCache format
+    if (r.status === 'FLAGGED') {
+      flagged++;
+      permitCache[lead.id] = {
+        status: 'FLAGGED',
+        checking: false,
+        reason: r.reason || 'Reroof permit found',
+        permitCount: (r.reroofPermits || []).length || 1,
+        permits: (r.permits || []).map(p => ({
+          permitNumber: p.permitNum || '',
+          issueDate: p.issuedDate || p.appliedDate || '',
+          description: p.description || p.subType || '',
+          source: `LOGIS ePermits — ${r.city}`,
+        })),
+        message: r.reason || 'Recent roof permit found. Lead moved to Cold.',
+        source: 'LOGIS scraper',
+        checkedAt: r.checkedAt,
+      };
+    } else if (r.status === 'CLEAR') {
+      cleared++;
+      permitCache[lead.id] = {
+        status: 'CLEAR',
+        checking: false,
+        permitCount: 0,
+        permits: [],
+        note: r.note || '',
+        message: 'No roofing permits found. Lead confirmed HOT.',
+        source: 'LOGIS scraper',
+        checkedAt: r.checkedAt,
+      };
+    } else if (r.status === 'SKIP') {
+      skipped++;
+      permitCache[lead.id] = {
+        status: 'SKIP',
+        checking: false,
+        permitCount: 0,
+        permits: [],
+        city: r.city,
+        reason: r.reason || 'City not on LOGIS',
+        source: 'LOGIS scraper',
+        checkedAt: r.checkedAt,
+      };
+    } else {
+      // UNKNOWN / ERROR — treat as unverified
+      permitCache[lead.id] = {
+        status: 'UNKNOWN',
+        checking: false,
+        permitCount: 0,
+        permits: [],
+        message: r.error || r.reason || 'No permit data available',
+        source: 'LOGIS scraper',
+        checkedAt: r.checkedAt,
+      };
+    }
+  }
+
+  // Re-render the list so dots update
+  renderList();
+
+  // If any lead detail panel is open, refresh it too
+  if (selectedLead) {
+    const sec = document.getElementById(`permitVerifySection-${selectedLead.id}`);
+    if (sec) {
+      sec.innerHTML = `<div class="detail-section-title">Roof permit verification</div>` + renderPermitSection(selectedLead);
+    }
+  }
+
+  setStatus(
+    `Permit results loaded — ${matched} matched · ${flagged} flagged · ${cleared} clear · ${skipped} unverified (no API)`,
+    flagged > 0 ? 'var(--hot)' : 'var(--watch)'
+  );
+
+  if (flagged > 0) {
+    const names = (allLeads || [])
+      .filter(l => permitCache[l.id]?.status === 'FLAGGED')
+      .map(l => `${l.addr}, ${l.city}`)
+      .slice(0, 5)
+      .join(' · ');
+    setTimeout(() => {
+      setStatus(`⛔ ${flagged} lead(s) flagged for recent reroof: ${names}${flagged > 5 ? ' …' : ''}`, 'var(--hot)');
+    }, 3000);
+  }
 }
 
 function setStatus(msg, color) {
