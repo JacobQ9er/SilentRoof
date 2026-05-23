@@ -56,30 +56,37 @@ const GIS_PARAMS = new URLSearchParams({
 
 // ─── LOGIS city routing ───────────────────────────────────────────────────────
 
+// City codes confirmed from LOGIS home page (https://epermits.logis.org/home.aspx)
+// Pattern: https://epermits.logis.org/home.aspx?city=XX
+// The permit search page is: https://epermits.logis.org/Permits/BuildingPermits.aspx?city=XX
 const LOGIS_CITIES = {
-  'APPLE VALLEY':   'AppleValley',
-  'CRYSTAL':        'Crystal',
-  'EDEN PRAIRIE':   'EdenPrairie',
-  'EDINA':          'Edina',
-  'FARMINGTON':     'Farmington',
-  'GOLDEN VALLEY':  'GoldenValley',
-  'LE SUEUR':       'LeSueur',
-  'MAPLE GROVE':    'MapleGrove',
-  'MINNETONKA':     'Minnetonka',
-  'RAMSEY':         'Ramsey',
-  'SAVAGE':         'Savage',
-  'SOUTH ST. PAUL': 'SouthStPaul',
-  'SOUTH ST PAUL':  'SouthStPaul',
-  'ST. LOUIS PARK': 'StLouisPark',
-  'ST LOUIS PARK':  'StLouisPark',
-  'WACONIA':        'Waconia',
-  'WHITE BEAR LAKE':'WhiteBearLake',
+  'APPLE VALLEY':   'av',
+  'CRYSTAL':        'cy',
+  'EDEN PRAIRIE':   'ep',
+  'EDINA':          'ed',
+  'FARMINGTON':     'fa',
+  'GOLDEN VALLEY':  'gv',
+  'LE SUEUR':       'ls',
+  'MAPLE GROVE':    'mg',
+  'MINNETONKA':     'mt',
+  'RAMSEY':         'ra',
+  'SAVAGE':         'sa',
+  'SOUTH ST. PAUL': 'ss',
+  'SOUTH ST PAUL':  'ss',
+  'ST. LOUIS PARK': 'sl',
+  'ST LOUIS PARK':  'sl',
+  'WACONIA':        'wa',
+  'WHITE BEAR LAKE':'wb',
 };
 
+// NOTE: Some city codes above (ep, ed, fa, gv, ls, mg, mt, ra, sa, ss, wa, wb) are guesses
+// based on the city abbreviation pattern. Run --probe on each city to verify before full run.
+// Confirmed codes: sl=St Louis Park, av=Apple Valley, cy=Crystal
+
 function getLogisUrl(city) {
-  const cityPath = LOGIS_CITIES[(city || '').toUpperCase().trim()];
-  if (!cityPath) return null;
-  return `https://epermits.logis.org/ePermits/${cityPath}/Permits/BuildingPermits.aspx`;
+  const code = LOGIS_CITIES[(city || '').toUpperCase().trim()];
+  if (!code) return null;
+  return `https://epermits.logis.org/Permits/BuildingPermits.aspx?city=${code}`;
 }
 
 // ─── CLI args ─────────────────────────────────────────────────────────────────
