@@ -1182,10 +1182,13 @@ function applyPermitResults(data) {
   renderList();
 
   // If any lead detail panel is open, refresh it too
-  if (selectedLead) {
-    const sec = document.getElementById(`permitVerifySection-${selectedLead.id}`);
-    if (sec) {
-      sec.innerHTML = `<div class="detail-section-title">Roof permit verification</div>` + renderPermitSection(selectedLead);
+  if (selectedId) {
+    const openLead = allLeads.find(x => x.id === selectedId);
+    if (openLead) {
+      const sec = document.getElementById(`permitVerifySection-${selectedId}`);
+      if (sec) {
+        sec.innerHTML = `<div class="detail-section-title">Roof permit verification</div>` + renderPermitSection(openLead);
+      }
     }
   }
 
