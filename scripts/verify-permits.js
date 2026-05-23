@@ -179,109 +179,44 @@ async function checkPermitsForAddress(page, address, city) {
 
   const { houseNum, streetName } = parseAddress(address);
 
+  // Confirmed field IDs from LOGIS search.aspx (probed 2026-05-22)
+  const HOUSE_ID   = '#b_b_address_txtHouse';
+  const STREET_ID  = '#m_m_b_b_address_cboStreet_Input';  // combo box — type to filter
+  const SEARCH_ID  = '#b_b_btnSearch';
+
   try {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: PAGE_TIMEOUT_MS });
 
-    // Find and fill the house number field
-    // LOGIS uses ASP.NET WebForms — try common field selectors
-    const houseSelectors = [
-      'input[name*="HouseNum"]', 'input[id*="HouseNum"]',
-      'input[name*="houseNum"]', 'input[id*="houseNum"]',
-      'input[name*="HouseNumber"]', 'input[id*="HouseNumber"]',
-      'input[name*="Addr"]', 'input[id*="Addr"]',
-      'input[name*="txtHouse"]', 'input[id*="txtHouse"]',
-    ];
-    const streetSelectors = [
-      'input[name*="StreetName"]', 'input[id*="StreetName"]',
-      'input[name*="streetName"]', 'input[id*="streetName"]',
-      'input[name*="Street"]', 'input[id*="Street"]',
-      'input[name*="txtStreet"]', 'input[id*="txtStreet"]',
-      'select[name*="Street"]', 'select[id*="Street"]',
-      'select[name*="StreetName"]', 'select[id*="StreetName"]',
-    ];
+    // Fill house number
+    await page.waitForSelector(HOUSE_ID, { timeout: 10000 });
+    await page.click(HOUSE_ID, { clickCount: 3 });
+    await page.type(HOUSE_ID, houseNum);
 
-    // Try each selector until one is found
-    let houseField = null;
-    for (const sel of houseSelectors) {
-      const el = await page.$(sel);
-      if (el) { houseField = sel; break; }
-    }
+    // Fill street — it's a Telerik combo box (type-ahead autocomplete)
+    // Type the street name, wait for dropdown to appear, then pick the first match
+    await page.click(STREET_ID, { clickCount: 3 });
+    await page.type(STREET_ID, streetName, { delay: 50 });
 
-    let streetField = null;
-    for (const sel of streetSelectors) {
-      const el = await page.$(sel);
-      if (el) { streetField = sel; break; }
-    }
+    // Wait for autocomplete dropdown to appear (li items in the suggestion list)
+    // Telerik combo list typically appears as ul.rcbList > li
+    const dropdownAppeared = await page.waitForSelector(
+      'ul.rcbList li, .rcbSlide li, [id*="cboStreet_DropDown"] li',
+      { timeout: 3000, visible: true }
+    ).catch(() => null);
 
-    // If we still can't find fields, dump all inputs for debugging
-    if (!houseField || !streetField) {
-      const allFields = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('input, select, textarea'))
-          .filter(el => el.type !== 'hidden')
-          .map(el => ({ tag: el.tagName, type: el.type, name: el.name, id: el.id }));
-      });
-      return {
-        status: 'ERROR',
-        error: `Could not find form fields. Fields on page: ${JSON.stringify(allFields)}`,
-        permits: [],
-      };
-    }
-
-    // Clear and fill house number
-    await page.click(houseField, { clickCount: 3 });
-    await page.type(houseField, houseNum);
-
-    // Street name — handle both text input and dropdown
-    const streetTag = await page.$eval(streetField, el => el.tagName.toLowerCase());
-    if (streetTag === 'select') {
-      // Try to select matching option (partial match)
-      const selected = await page.evaluate((sel, street) => {
-        const el = document.querySelector(sel);
-        const options = Array.from(el.options);
-        const match = options.find(o => o.text.toUpperCase().includes(street.toUpperCase()));
-        if (match) { el.value = match.value; el.dispatchEvent(new Event('change')); return true; }
-        return false;
-      }, streetField, streetName);
-      if (!selected) {
-        return { status: 'UNKNOWN', error: `Street "${streetName}" not found in dropdown`, permits: [] };
-      }
+    if (dropdownAppeared) {
+      // Click the first suggestion
+      await page.click('ul.rcbList li:first-child, .rcbSlide li:first-child, [id*="cboStreet_DropDown"] li:first-child');
+      await sleep(300);
     } else {
-      await page.click(streetField, { clickCount: 3 });
-      await page.type(streetField, streetName);
+      // No autocomplete appeared — street may not exist in this city, or field accepts free text
+      // Just leave what we typed and proceed
     }
 
-    // Set permit type to Building if dropdown exists
-    const permitTypeSelectors = [
-      'select[name*="PermitType"]', 'select[id*="PermitType"]',
-      'select[name*="permitType"]', 'select[id*="permitType"]',
-      'select[name*="ddlPermit"]', 'select[id*="ddlPermit"]',
-    ];
-    for (const sel of permitTypeSelectors) {
-      const el = await page.$(sel);
-      if (el) {
-        await page.select(sel, 'Building').catch(() => {}); // ignore if "Building" not an option value
-        break;
-      }
-    }
-
-    // Click Search button
-    const searchSelectors = [
-      'input[value="Search"]', 'button[id*="Search"]', 'input[id*="Search"]',
-      'input[value*="Search"]', 'button[value*="Search"]',
-      'input[id*="btnSearch"]', 'button[id*="btnSearch"]',
-    ];
-    let clicked = false;
-    for (const sel of searchSelectors) {
-      const el = await page.$(sel);
-      if (el) { await el.click(); clicked = true; break; }
-    }
-    if (!clicked) {
-      return { status: 'ERROR', error: 'Could not find Search button', permits: [] };
-    }
-
-    // Wait for results to load
+    // Click Search and wait for results
+    await page.click(SEARCH_ID);
     await page.waitForNetworkIdle({ timeout: PAGE_TIMEOUT_MS }).catch(() => {});
-    await sleep(500); // small buffer for JS rendering
+    await sleep(800); // buffer for JS rendering
 
     // Check for "no records" text
     const bodyText = await page.evaluate(() => document.body.innerText);
