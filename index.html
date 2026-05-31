@@ -15,7 +15,7 @@
 }
 html,body{height:100%;background:var(--void);color:var(--text);font-family:var(--display);overflow:hidden}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,200,255,.012) 2px,rgba(0,200,255,.012) 4px);pointer-events:none;z-index:0}
-.shell{display:grid;grid-template-rows:56px 41px 1fr;height:100vh;position:relative;z-index:1}
+.shell{display:grid;grid-template-rows:56px 41px 1fr;height:100vh;position:relative;z-index:1;overflow:hidden}
 .topbar{display:flex;align-items:center;padding:0 20px;gap:12px;border-bottom:1px solid var(--border);background:rgba(8,10,15,.95)}
 .logo-text{font-family:var(--display);font-size:17px;font-weight:800;letter-spacing:-.3px}
 .logo-text span{color:var(--accent)}
@@ -129,7 +129,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .row-permit-dot.unknown{background:var(--muted2);display:inline-block}
 
 /* PIPELINE CRM */
-.pipeline-wrap{padding:20px;overflow-y:auto;height:100%}
+.pipeline-wrap{padding:20px;overflow-y:auto;position:absolute;top:97px;left:0;right:0;bottom:0;z-index:5;background:var(--void)}
 .pipeline-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
 .pipeline-title{font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.3px}
 .pipeline-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
@@ -1321,7 +1321,7 @@ buildPageDropdown();
   </div><!-- end view-leads -->
 
 <!-- PIPELINE TAB -->
-<div id="tab-pipeline" style="display:none;grid-column:1/-1;overflow-y:auto" class="pipeline-wrap">
+<div id="tab-pipeline" style="display:none" class="pipeline-wrap">
   <div class="pipeline-header">
     <div class="pipeline-title">Pipeline <span style="color:var(--accent)">CRM</span></div>
     <div style="display:flex;gap:8px">
