@@ -657,8 +657,8 @@ function selectLead(id){
       </div>
     </div>
     <div class="action-btns">
-      <button class="action-btn cta" onclick="addToPipelineAndEmail(${JSON.stringify(l).replace(/`/g,'')})">Draft Outreach Email</button>
-      <button class="action-btn" onclick="addToPipeline(${JSON.stringify(l).replace(/`/g,'')});setStatus('Added to pipeline','var(--watch)')">Add to pipeline</button>
+      <button class="action-btn cta" onclick="addToPipelineAndEmailById(${l.id})">Draft Outreach Email</button>
+      <button class="action-btn" onclick="addToPipelineById(${l.id})">Add to pipeline</button>
       <button class="action-btn" onclick="exportSingle(${l.id})">Export this lead</button>
     </div>`;
 }
@@ -794,6 +794,18 @@ function updatePipelineStats() {
   document.getElementById('ps-interested').textContent = stats.interested||0;
   document.getElementById('ps-proposal').textContent = stats.proposal||0;
   document.getElementById('ps-won').textContent = stats.won||0;
+}
+
+function addToPipelineById(id) {
+  const lead = allLeads.find(l => l.id === id);
+  if (!lead) return;
+  addToPipeline(lead);
+}
+
+function addToPipelineAndEmailById(id) {
+  const lead = allLeads.find(l => l.id === id);
+  if (!lead) return;
+  addToPipelineAndEmail(lead);
 }
 
 async function addToPipeline(lead) {
