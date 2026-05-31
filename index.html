@@ -3,6 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <title>SilentRoof — AI Lead Intelligence</title>
+<script>
+// ── Password gate ──────────────────────────────────────────────────────────
+// To change the password, update the value below and redeploy.
+(function(){
+  const PASS = 'roof2026';
+  const KEY  = 'sr_auth';
+  if (sessionStorage.getItem(KEY) === PASS) return; // already authenticated
+  // Block render until authenticated
+  document.addEventListener('DOMContentLoaded', function() {
+    const gate = document.getElementById('authGate');
+    const app  = document.getElementById('appShell');
+    if (gate) gate.style.display = 'flex';
+    if (app)  app.style.display  = 'none';
+  });
+  window.__checkPass = function() {
+    const val = document.getElementById('passInput').value;
+    if (val === PASS) {
+      sessionStorage.setItem(KEY, PASS);
+      document.getElementById('authGate').style.display = 'none';
+      document.getElementById('appShell').style.display = 'block';
+    } else {
+      const err = document.getElementById('passError');
+      err.textContent = 'Incorrect password.';
+      err.style.display = 'block';
+      document.getElementById('passInput').value = '';
+      document.getElementById('passInput').focus();
+    }
+  };
+  window.__passKeydown = function(e) { if (e.key === 'Enter') window.__checkPass(); };
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -180,6 +211,30 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 </style>
 </head>
 <body>
+
+<!-- ── AUTH GATE ─────────────────────────────────────────────────────────── -->
+<div id="authGate" style="display:none;position:fixed;inset:0;background:#080a0f;z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:24px">
+  <div style="text-align:center;margin-bottom:8px">
+    <svg width="40" height="40" viewBox="0 0 28 28" fill="none" style="margin-bottom:12px">
+      <path d="M4 22 L14 5 L24 22 Z" fill="none" stroke="#00c8ff" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M8 22 L14 11 L20 22 Z" fill="rgba(0,200,255,.15)" stroke="#00c8ff" stroke-width="1" stroke-linejoin="round"/>
+      <circle cx="14" cy="22" r="1.5" fill="#00c8ff"/>
+    </svg>
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#e8edf5;letter-spacing:-.3px">Silent<span style="color:#00c8ff">Roof</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#3a5070;letter-spacing:2px;text-transform:uppercase;margin-top:4px">AI Lead Intelligence</div>
+  </div>
+  <div style="background:#0d1117;border:1px solid #1e2d45;border-radius:6px;padding:28px 32px;width:320px">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#5a7090;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px">Access required</div>
+    <input id="passInput" type="password" placeholder="Enter password" onkeydown="__passKeydown(event)"
+      style="width:100%;background:#141c2b;border:1px solid #1e2d45;border-radius:3px;color:#e8edf5;font-family:'DM Mono',monospace;font-size:13px;padding:10px 12px;outline:none;margin-bottom:10px;transition:border-color .2s"
+      onfocus="this.style.borderColor='#00c8ff'" onblur="this.style.borderColor='#1e2d45'">
+    <div id="passError" style="display:none;font-family:'DM Mono',monospace;font-size:10px;color:#ff3b30;margin-bottom:10px"></div>
+    <button onclick="__checkPass()" style="width:100%;background:#00c8ff;color:#080a0f;border:none;border-radius:3px;font-family:'DM Mono',monospace;font-size:11px;font-weight:600;letter-spacing:1px;padding:10px;cursor:pointer;text-transform:uppercase;transition:opacity .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Enter</button>
+  </div>
+  <div style="font-family:'DM Mono',monospace;font-size:9px;color:#3a5070;text-align:center">Authorized users only</div>
+</div>
+
+<div id="appShell">
 <div class="shell">
   <div class="topbar">
     <svg width="26" height="26" viewBox="0 0 28 28" fill="none" style="flex-shrink:0">
@@ -1354,5 +1409,6 @@ buildPageDropdown();
   </div>
 </div>
 
+</div><!-- end appShell -->
 </body>
 </html>
