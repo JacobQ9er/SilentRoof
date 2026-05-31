@@ -40,6 +40,10 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .stat-num{font-family:var(--mono);font-size:22px;font-weight:500;line-height:1}
 .stat-num.hot{color:var(--hot)}.stat-num.warm{color:var(--warm)}.stat-num.watch{color:var(--watch)}.stat-num.total{color:var(--accent)}
 .stat-label{font-size:10px;color:var(--muted);margin-top:3px}
+.check-row{display:flex;align-items:center;gap:8px;width:100%;padding:5px 8px;border-radius:3px;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;transition:all .15s;user-select:none}
+.check-row:hover{color:var(--text)}
+.check-row input[type=checkbox],.check-row input[type=radio]{accent-color:var(--accent);cursor:pointer;width:12px;height:12px;flex-shrink:0}
+.check-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;display:inline-block}
 .filter-btn{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;border-radius:3px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--display);font-size:12px;transition:all .15s;text-align:left}
 .filter-btn:hover,.filter-btn.active{background:var(--card);color:var(--text)}
 .filter-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -225,17 +229,23 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       </div>
       <div class="sidebar-label" style="padding:0 20px;margin-bottom:8px">Filter</div>
       <div style="padding:0 12px">
-        <button class="filter-btn active" onclick="setFilter('all',this)"><span class="filter-dot" style="background:var(--accent)"></span>All<span class="filter-count" id="fc-all">0</span></button>
-        <button class="filter-btn" onclick="setFilter('hot',this)"><span class="filter-dot" style="background:var(--hot)"></span>Hot<span class="filter-count" id="fc-hot">0</span></button>
-        <button class="filter-btn" onclick="setFilter('warm',this)"><span class="filter-dot" style="background:var(--warm)"></span>Warm<span class="filter-count" id="fc-warm">0</span></button>
-        <button class="filter-btn" onclick="setFilter('watch',this)"><span class="filter-dot" style="background:var(--watch)"></span>Watch<span class="filter-count" id="fc-watch">0</span></button>
-        <button class="filter-btn" onclick="setFilter('cold',this)"><span class="filter-dot" style="background:var(--muted2)"></span>Cold<span class="filter-count" id="fc-cold">0</span></button>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-label">Sort by</div>
-        <button class="filter-btn active" id="sort-permit" onclick="setSort('permit',this)"><span class="filter-dot" style="background:var(--watch)"></span>Permit status</button>
-        <button class="filter-btn" id="sort-score" onclick="setSort('score',this)"><span class="filter-dot" style="background:var(--accent)"></span>Lead score</button>
-        <button class="filter-btn" id="sort-city" onclick="setSort('city',this)"><span class="filter-dot" style="background:var(--muted)"></span>City</button>
+        <!-- Permit status checkboxes -->
+        <div class="sidebar-label" style="padding:0 8px;margin-bottom:6px">Permit status</div>
+        <label class="check-row"><input type="checkbox" id="chk-clear" checked onchange="applyFilters()"><span class="check-dot" style="background:var(--watch)"></span>Verified clear <span class="filter-count" id="fc-clear">0</span></label>
+        <label class="check-row"><input type="checkbox" id="chk-cold" onchange="applyFilters()"><span class="check-dot" style="background:var(--hot)"></span>Cold (reroofed) <span class="filter-count" id="fc-cold">0</span></label>
+        <label class="check-row"><input type="checkbox" id="chk-unverified" checked onchange="applyFilters()"><span class="check-dot" style="background:var(--muted2)"></span>Unverified <span class="filter-count" id="fc-unverified">0</span></label>
+        <!-- Property type checkboxes -->
+        <div class="sidebar-label" style="padding:0 8px;margin:10px 0 6px">Property type</div>
+        <label class="check-row"><input type="checkbox" id="chk-commercial" checked onchange="applyFilters()"><span class="check-dot" style="background:var(--accent)"></span>Commercial</label>
+        <label class="check-row"><input type="checkbox" id="chk-residential" checked onchange="applyFilters()"><span class="check-dot" style="background:var(--warm)"></span>Residential</label>
+        <!-- City filter -->
+        <div class="sidebar-label" style="padding:0 8px;margin:10px 0 6px">City</div>
+        <div id="city-checkboxes" style="max-height:160px;overflow-y:auto"></div>
+        <!-- Sort -->
+        <div class="sidebar-label" style="padding:0 8px;margin:10px 0 6px">Sort by</div>
+        <label class="check-row"><input type="radio" name="sort" value="permit" checked onchange="applyFilters()">Permit status (green first)</label>
+        <label class="check-row"><input type="radio" name="sort" value="score" onchange="applyFilters()">Lead score</label>
+        <label class="check-row"><input type="radio" name="sort" value="city" onchange="applyFilters()">City A–Z</label>
       </div>
       <div style="padding:10px 20px;margin-top:auto;border-top:1px solid var(--border)">
         <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--muted2);text-transform:uppercase;margin-bottom:3px">Data source</div>
@@ -374,6 +384,7 @@ async function startScan(){
 
     allLeads = deduped;
     dataSource = 'live';
+    buildCityCheckboxes();
     document.getElementById('lastScan').textContent = 'Live — '+new Date().toLocaleTimeString();
     dot.className='pulse-dot live'; lbl.className='live-label'; lbl.textContent='Live';
     updateCounts(); renderList();
@@ -439,19 +450,54 @@ function setFilter(f,btn){
 
 function filterLeads(q){ activeSearch=q.toLowerCase(); renderList(); }
 
-function setSort(s, btn) {
-  activeSort = s;
-  document.querySelectorAll('#sort-permit,#sort-score,#sort-city').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
+// ── Active filter state ────────────────────────────────────────────────────
+let activeCities = new Set(); // empty = all cities
+
+function applyFilters() {
+  activeSort = document.querySelector('input[name="sort"]:checked')?.value || 'permit';
   renderList();
+  updateCounts();
+}
+
+function buildCityCheckboxes() {
+  const cities = [...new Set(allLeads.map(l=>l.city).filter(Boolean))].sort();
+  const wrap = document.getElementById('city-checkboxes');
+  if(!wrap) return;
+  wrap.innerHTML = cities.map(city =>
+    `<label class="check-row"><input type="checkbox" class="city-chk" value="${city}" checked onchange="toggleCity('${city}',this.checked)">${city}</label>`
+  ).join('');
+  activeCities = new Set(); // empty = all checked
+}
+
+function toggleCity(city, checked) {
+  // If all are checked, activeCities stays empty (show all)
+  // Once any is unchecked, we track which are checked
+  const allChks = document.querySelectorAll('.city-chk');
+  const checkedCities = [...allChks].filter(c=>c.checked).map(c=>c.value);
+  activeCities = checkedCities.length === allChks.length
+    ? new Set()  // all checked = no filter
+    : new Set(checkedCities);
+  renderList();
+  updateCounts();
 }
 
 function permitSortKey(l) {
   const pv = permitCache[l.id];
-  if (!pv || !pv.status) return 2; // unchecked — middle
-  if (pv.status === 'CLEAR')   return 0; // green first
-  if (pv.status === 'FLAGGED') return 3; // red last
-  return 2; // SKIP/UNKNOWN — middle
+  if (!pv || !pv.status) return 2;
+  if (pv.status === 'CLEAR')   return 0;
+  if (pv.status === 'FLAGGED') return 3;
+  return 2;
+}
+
+// Commercial property type codes (PR_TYP_CD1 values that are NOT residential)
+const COMMERCIAL_TYPES = new Set(['C','I','A','M','S','U','X','G','T','W','P','L','N','O']);
+
+function isCommercial(l) {
+  return COMMERCIAL_TYPES.has((l.type||l.propertyType||'').toUpperCase().charAt(0)) ||
+    (l.type||'').toUpperCase().includes('COMMERCIAL') ||
+    (l.type||'').toUpperCase().includes('INDUSTRIAL') ||
+    (l.type||'').toUpperCase().includes('OFFICE') ||
+    (l.type||'').toUpperCase().includes('RETAIL');
 }
 
 function getVisibleLeads(){
@@ -462,23 +508,45 @@ function getVisibleLeads(){
   if(dataSource==='demo'){
     leads = currentTier==='starter' ? leads.slice(0,4) : currentTier==='pro' ? leads.slice(0,7) : leads;
   }
-  if(activeFilter==='cold'){
-    leads=leads.filter(l=>permitCache[l.id]&&permitCache[l.id].status==='FLAGGED');
-  } else if(activeFilter!=='all'){
-    leads=leads.filter(l=>l.tier===activeFilter&&!(permitCache[l.id]&&permitCache[l.id].status==='FLAGGED'));
+
+  // Permit status checkboxes
+  const showClear      = document.getElementById('chk-clear')?.checked !== false;
+  const showCold       = document.getElementById('chk-cold')?.checked === true;
+  const showUnverified = document.getElementById('chk-unverified')?.checked !== false;
+  leads = leads.filter(l => {
+    const pv = permitCache[l.id];
+    const status = pv?.status;
+    if (status === 'CLEAR')   return showClear;
+    if (status === 'FLAGGED') return showCold;
+    return showUnverified; // UNKNOWN, SKIP, or unchecked
+  });
+
+  // Property type checkboxes
+  const showCommercial  = document.getElementById('chk-commercial')?.checked !== false;
+  const showResidential = document.getElementById('chk-residential')?.checked !== false;
+  if(!showCommercial || !showResidential) {
+    leads = leads.filter(l => isCommercial(l) ? showCommercial : showResidential);
   }
+
+  // City filter
+  if(activeCities.size > 0) {
+    leads = leads.filter(l => activeCities.has(l.city));
+  }
+
+  // Text search
   if(activeSearch) leads=leads.filter(l=>
-    l.name.toLowerCase().includes(activeSearch)||
-    l.addr.toLowerCase().includes(activeSearch)||
-    l.city.toLowerCase().includes(activeSearch)
+    (l.name||'').toLowerCase().includes(activeSearch)||
+    (l.addr||'').toLowerCase().includes(activeSearch)||
+    (l.city||'').toLowerCase().includes(activeSearch)
   );
+
   // Sort
   if(activeSort==='permit'){
     leads.sort((a,b) => permitSortKey(a) - permitSortKey(b) || a.yearsLeft - b.yearsLeft);
   } else if(activeSort==='city'){
     leads.sort((a,b) => (a.city||'').localeCompare(b.city||'') || permitSortKey(a) - permitSortKey(b));
   } else {
-    leads.sort((a,b) => a.yearsLeft - b.yearsLeft); // default: score
+    leads.sort((a,b) => a.yearsLeft - b.yearsLeft);
   }
   return leads;
 }
@@ -487,25 +555,21 @@ function updateCounts(){
   const base = dataSource==='demo'
     ? (currentTier==='starter'?allLeads.slice(0,4):currentTier==='pro'?allLeads.slice(0,7):allLeads)
     : (currentTier==='starter'&&TIER_ZIPS.starter ? allLeads.filter(l=>TIER_ZIPS.starter.has(l.zip)) : allLeads);
-  // A lead is "cold" if its permit check came back FLAGGED (recent reroof found)
-  const isCold = l => permitCache[l.id] && permitCache[l.id].status === 'FLAGGED';
+  const isCold = l => permitCache[l.id]?.status === 'FLAGGED';
+  const isClear = l => permitCache[l.id]?.status === 'CLEAR';
   const hot   = base.filter(l=>l.tier==='hot'  && !isCold(l)).length;
   const warm  = base.filter(l=>l.tier==='warm' && !isCold(l)).length;
   const watch = base.filter(l=>l.tier==='watch'&& !isCold(l)).length;
   const cold  = base.filter(l=>isCold(l)).length;
+  const clear = base.filter(l=>isClear(l)).length;
+  const unver = base.filter(l=>!isCold(l)&&!isClear(l)).length;
   document.getElementById('hotCount').textContent=hot;
   document.getElementById('warmCount').textContent=warm;
   document.getElementById('watchCount').textContent=watch;
   document.getElementById('totalCount').textContent=base.length;
-  document.getElementById('fc-all').textContent=base.length;
-  document.getElementById('fc-hot').textContent=hot;
-  document.getElementById('fc-warm').textContent=warm;
-  document.getElementById('fc-watch').textContent=watch;
-  // Update cold count if the element exists
-  const coldEl=document.getElementById('fc-cold');
-  if(coldEl) coldEl.textContent=cold;
-  const coldCountEl=document.getElementById('coldCount');
-  if(coldCountEl) coldCountEl.textContent=cold;
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('fc-cold', cold); set('coldCount', cold);
+  set('fc-clear', clear); set('fc-unverified', unver);
 }
 
 function renderList(){
@@ -682,16 +746,18 @@ const STAGE_COLORS = { new:'var(--muted)', contacted:'var(--warm)', interested:'
 let pipelineLeads = [];
 let currentModalLead = null;
 
+// ── Pipeline: localStorage (no backend needed) ─────────────────────────────
+function savePipelineToStorage() {
+  try { localStorage.setItem('sr_pipeline', JSON.stringify(pipelineLeads)); } catch(e) {}
+}
+function loadPipelineFromStorage() {
+  try { return JSON.parse(localStorage.getItem('sr_pipeline') || '[]'); } catch(e) { return []; }
+}
+
 async function loadPipeline() {
-  try {
-    const r = await fetch('/api/pipeline?action=getAll');
-    const data = await r.json();
-    pipelineLeads = data.leads || [];
-    renderPipeline();
-    updatePipelineStats();
-  } catch(e) {
-    console.error('Pipeline load error:', e);
-  }
+  pipelineLeads = loadPipelineFromStorage();
+  renderPipeline();
+  updatePipelineStats();
 }
 
 function renderPipeline() {
@@ -731,69 +797,39 @@ function updatePipelineStats() {
 }
 
 async function addToPipeline(lead) {
-  const payload = { ...lead, stage: 'new' };
-  try {
-    const r = await fetch('/api/pipeline?action=save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await r.json();
-    if(data.success) {
-      // Update local cache
-      const idx = pipelineLeads.findIndex(l => l.permitNum === lead.permitNum);
-      if(idx >= 0) pipelineLeads[idx] = data.lead;
-      else pipelineLeads.unshift(data.lead);
-      setStatus(`${lead.name || lead.addr} added to pipeline`, 'var(--watch)');
-    }
-  } catch(e) {
-    setStatus('Error saving to pipeline', 'var(--hot)');
-  }
+  const payload = { ...lead, stage: 'new', addedAt: Date.now(), updatedAt: Date.now() };
+  const idx = pipelineLeads.findIndex(l => l.permitNum === lead.permitNum);
+  if(idx >= 0) pipelineLeads[idx] = { ...pipelineLeads[idx], ...payload };
+  else pipelineLeads.unshift(payload);
+  savePipelineToStorage();
+  setStatus(`${lead.name || lead.addr} added to pipeline`, 'var(--watch)');
 }
 
 async function updateStage(permitNum, stage) {
-  try {
-    const lead = pipelineLeads.find(l => l.permitNum === permitNum);
-    if(!lead) return;
-    const r = await fetch('/api/pipeline?action=save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...lead, stage })
-    });
-    const data = await r.json();
-    if(data.success) {
-      const idx = pipelineLeads.findIndex(l => l.permitNum === permitNum);
-      if(idx >= 0) pipelineLeads[idx] = data.lead;
-      renderPipeline();
-      updatePipelineStats();
-    }
-  } catch(e) { console.error(e); }
+  const idx = pipelineLeads.findIndex(l => l.permitNum === permitNum);
+  if(idx < 0) return;
+  pipelineLeads[idx] = { ...pipelineLeads[idx], stage, updatedAt: Date.now() };
+  savePipelineToStorage();
+  renderPipeline();
+  updatePipelineStats();
 }
 
 async function addNote(permitNum, note) {
-  try {
-    const r = await fetch('/api/pipeline?action=addNote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ permitNum, note })
-    });
-    const data = await r.json();
-    if(data.success) {
-      const idx = pipelineLeads.findIndex(l => l.permitNum === permitNum);
-      if(idx >= 0) pipelineLeads[idx] = data.lead;
-      return data.lead;
-    }
-  } catch(e) { console.error(e); }
+  const idx = pipelineLeads.findIndex(l => l.permitNum === permitNum);
+  if(idx < 0) return;
+  pipelineLeads[idx].notes = pipelineLeads[idx].notes || [];
+  pipelineLeads[idx].notes.push({ text: note, ts: Date.now() });
+  pipelineLeads[idx].updatedAt = Date.now();
+  savePipelineToStorage();
+  return pipelineLeads[idx];
 }
 
 async function removeFromPipeline(permitNum) {
-  try {
-    await fetch(`/api/pipeline?action=delete&permitNum=${encodeURIComponent(permitNum)}`, { method: 'DELETE' });
-    pipelineLeads = pipelineLeads.filter(l => l.permitNum !== permitNum);
-    renderPipeline();
-    updatePipelineStats();
-    closeModal();
-  } catch(e) { console.error(e); }
+  pipelineLeads = pipelineLeads.filter(l => l.permitNum !== permitNum);
+  savePipelineToStorage();
+  renderPipeline();
+  updatePipelineStats();
+  closeModal();
 }
 
 // ── MODAL ──────────────────────────────────────────────────────────────────────
